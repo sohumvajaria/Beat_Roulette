@@ -202,7 +202,7 @@ const FAMOUS_ARTISTS = [
 ];
 
 // ---------- Deezer JSONP ----------
-function deezerSearch(query) {
+function deezerSearch(query, limit = 25) {
   return new Promise((resolve, reject) => {
     const cb = "__dz_cb_" + Math.random().toString(36).slice(2);
     const script = document.createElement("script");
@@ -211,9 +211,38 @@ function deezerSearch(query) {
     window[cb] = (data) => { if (done) return; cleanup(); resolve(data); };
     script.onerror = () => { if (done) return; cleanup(); reject(new Error("network")); };
     setTimeout(() => { if (done) return; cleanup(); reject(new Error("timeout")); }, 8000);
-    script.src = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&output=jsonp&callback=${cb}`;
+    script.src = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=${limit}&output=jsonp&callback=${cb}`;
     document.head.appendChild(script);
   });
+}
+
+function normalizeDeezerTrack(track) {
+  if (!track) return null;
+  const title = (track.title_short || track.title || "").trim();
+  if (!title) return null;
+  const artist = (track.artist && track.artist.name) ? track.artist.name.trim() : "";
+  return {
+    deezerId: String(track.id),
+    title,
+    artist: artist || "Unknown artist",
+    cover: (track.album && (track.album.cover_small || track.album.cover_medium || track.album.cover)) || null,
+    preview: track.preview || null,
+  };
+}
+
+async function searchTracks(query) {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  try {
+    const res = await deezerSearch(q, 14);
+    const tracks = ((res && res.data) || [])
+      .map(normalizeDeezerTrack)
+      .filter(Boolean);
+    tracks.sort((a, b) => (b.preview ? 1 : 0) - (a.preview ? 1 : 0));
+    return tracks.slice(0, 8);
+  } catch (e) {
+    return [];
+  }
 }
 function deezerArtistSearch(name) {
   return new Promise((resolve, reject) => {
@@ -262,6 +291,311 @@ async function findPreview(title, artist) {
     } catch (e) {}
   }
   return null;
+}
+
+// ---------- Song search autocomplete (Deezer) ----------
+function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoFocus, onOpenChange }) {
+  const isHome = variant === "home";
+  const [query, setQuery] = useStateApp("");
+  const [results, setResults] = useStateApp([]);
+  const [searching, setSearching] = useStateApp(false);
+  const [adding, setAdding] = useStateApp(false);
+  const [open, setOpen] = useStateApp(false);
+  const [activeIdx, setActiveIdx] = useStateApp(-1);
+  const wrapRef = useRefApp(null);
+  const inputRef = useRefApp(null);
+  const debounceRef = useRefApp(null);
+  const reqIdRef = useRefApp(0);
+
+  useEffectApp(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setSearching(false);
+      setOpen(false);
+      setActiveIdx(-1);
+      return;
+    }
+    setSearching(true);
+    setOpen(true);
+    const reqId = ++reqIdRef.current;
+    debounceRef.current = setTimeout(async () => {
+      const tracks = await searchTracks(q);
+      if (reqId !== reqIdRef.current) return;
+      setResults(tracks);
+      setSearching(false);
+      setActiveIdx(-1);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
+
+  useEffectApp(() => {
+    const onPointerDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, []);
+
+  const pickTrack = async (track) => {
+    if (!track || adding || disabled) return;
+    setAdding(true);
+    setOpen(false);
+    setQuery("");
+    setResults([]);
+    setActiveIdx(-1);
+    if (onClearError) onClearError();
+    try {
+      await onAdd({
+        title: track.title,
+        artist: track.artist,
+        url: track.preview,
+        cover: track.cover,
+        noPreview: !track.preview,
+      });
+    } finally {
+      setAdding(false);
+      inputRef.current && inputRef.current.focus();
+    }
+  };
+
+  const onInputKeyDown = (e) => {
+    if (!open || results.length === 0) {
+      if (e.key === "Escape") setOpen(false);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx(i => (i + 1) % results.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx(i => (i <= 0 ? results.length - 1 : i - 1));
+    } else if (e.key === "Enter" && activeIdx >= 0) {
+      e.preventDefault();
+      pickTrack(results[activeIdx]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  const inputClass = isHome
+    ? "w-full rounded-lg bg-black/45 border border-white/15 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-[var(--hp-gold)] focus:bg-black/60 transition"
+    : "w-full rounded-lg bg-[#282828] border border-transparent px-3 py-2.5 text-sm outline-none placeholder:text-[#535353] focus:border-[#1DB954] focus:bg-[#3a3a3a] transition";
+
+  const panelClass = isHome
+    ? "mt-2 rounded-xl border border-white/20 bg-[#0a0a10] shadow-[0_12px_40px_rgba(0,0,0,0.75)] overflow-hidden"
+    : "mt-2 rounded-xl border border-[#3a3a3a] bg-[#121212] shadow-[0_12px_40px_rgba(0,0,0,0.65)] overflow-hidden";
+
+  const panelHeaderClass = isHome
+    ? "px-3 py-2 border-b border-white/12 bg-[#12121a] font-mono text-[10px] uppercase tracking-[0.2em] text-white/45"
+    : "px-3 py-2 border-b border-[#282828] bg-[#181818] text-[11px] uppercase tracking-[0.16em] text-white/45";
+
+  const panelListClass = isHome ? "bg-[#0a0a10]" : "bg-[#121212]";
+  const panelRowBaseClass = isHome ? "bg-[#0a0a10]" : "bg-[#121212]";
+
+  const showDropdown = open && query.trim().length >= 2;
+
+  useEffectApp(() => {
+    if (onOpenChange) onOpenChange(showDropdown);
+  }, [showDropdown, onOpenChange]);
+
+  if (isHome) {
+    return (
+      <div ref={wrapRef}>
+        <label className="block">
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/55 mb-1.5">Search song</div>
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              autoFocus={autoFocus}
+              disabled={disabled || adding}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (onClearError) onClearError();
+              }}
+              onFocus={() => { if (query.trim().length >= 2) setOpen(true); }}
+              onKeyDown={onInputKeyDown}
+              placeholder="Start typing a song name…"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="song-suggest-input"
+            />
+            {(searching || adding) && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: "var(--hp-gold)" }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                </svg>
+              </div>
+            )}
+          </div>
+        </label>
+
+        {showDropdown && (
+          <div className="song-suggest-panel" role="listbox">
+            <div className="song-suggest-panel-header">
+              {searching ? "Searching…" : `${results.length} suggestion${results.length === 1 ? "" : "s"}`}
+            </div>
+            <div className="song-suggest-list">
+              {!searching && results.length === 0 && (
+                <div className="px-3 py-4 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-white/45">
+                  No matches — try another spelling
+                </div>
+              )}
+              {results.map((track, i) => {
+                const active = i === activeIdx;
+                return (
+                  <button
+                    key={track.deezerId}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onMouseEnter={() => setActiveIdx(i)}
+                    onClick={() => pickTrack(track)}
+                    className={cx("song-suggest-row", active && "is-active")}
+                  >
+                    {track.cover ? (
+                      <img src={track.cover} alt="" className="w-10 h-10 rounded-md object-cover shrink-0 border border-white/10" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-md shrink-0 border border-white/10 bg-[#282828]" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{track.title}</div>
+                      <div className="text-[11px] truncate text-white/55">{track.artist}</div>
+                    </div>
+                    {!track.preview && (
+                      <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-[#2a2a36] text-white/45">
+                        no preview
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!showDropdown && (
+          <div className="mt-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <span>Pick a match — cover, artist &amp; preview load automatically</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{error}</div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapRef} className="relative isolate">
+      <label className="block">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45 mb-1.5">Search song</div>
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            autoFocus={autoFocus}
+            disabled={disabled || adding}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (onClearError) onClearError();
+            }}
+            onFocus={() => { if (query.trim().length >= 2) setOpen(true); }}
+            onKeyDown={onInputKeyDown}
+            placeholder="Start typing a song name…"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className={inputClass}
+          />
+          {(searching || adding) && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: "#1DB954" }}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+              </svg>
+            </div>
+          )}
+        </div>
+      </label>
+
+      {showDropdown && (
+        <div className={panelClass} role="listbox">
+          <div className={panelHeaderClass}>
+            {searching ? "Searching…" : `${results.length} suggestion${results.length === 1 ? "" : "s"}`}
+          </div>
+          <div className={cx("max-h-[min(260px,40vh)] overflow-y-auto overscroll-contain", panelListClass)}>
+            {!searching && results.length === 0 && (
+              <div className="px-3 py-4 text-sm text-center text-white/45">
+                No matches — try another spelling
+              </div>
+            )}
+            {results.map((track, i) => {
+              const active = i === activeIdx;
+              return (
+                <button
+                  key={track.deezerId}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onMouseEnter={() => setActiveIdx(i)}
+                  onClick={() => pickTrack(track)}
+                  className={cx(
+                    "w-full flex items-center gap-3 px-3 py-2.5 text-left border-b last:border-b-0 transition",
+                    "border-[#282828]",
+                    active ? "bg-[#1f1f1f]" : `${panelRowBaseClass} hover:bg-[#1a1a1a]`
+                  )}
+                >
+                  {track.cover ? (
+                    <img src={track.cover} alt="" className="w-10 h-10 rounded-md object-cover shrink-0 border border-white/10" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-md shrink-0 border bg-[#282828] border-[#3a3a3a]" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate text-white">{track.title}</div>
+                    <div className="text-[11px] truncate text-white/55">{track.artist}</div>
+                  </div>
+                  {!track.preview && (
+                    <span className="shrink-0 text-[9px] uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-[#282828] text-[#535353]">
+                      no preview
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {!showDropdown && (
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-white/40">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <span>Pick a match — cover, artist &amp; preview load automatically</span>
+        </div>
+      )}
+
+      {error && (
+        <div className={cx(
+          "mt-2",
+          isHome
+            ? "font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]"
+            : "text-[12px] text-rose-400"
+        )}>{error}</div>
+      )}
+    </div>
+  );
 }
 
 // ---------- Atoms ----------
@@ -365,7 +699,7 @@ function HomeStageShell({ children }) {
     <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain fade-enter">
       <DriftingNotes count={18} />
       <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint pointer-events-none"></div>
-      <div className="relative z-10 flex flex-col min-h-[100dvh] pb-5">{children}</div>
+      <div className="relative z-10 flex flex-col min-h-[100dvh] pb-5 overflow-y-auto overflow-x-hidden">{children}</div>
       <div className="absolute bottom-0 left-0 right-0 h-[14px] hp-screenprint pointer-events-none"></div>
     </div>
   );
@@ -506,7 +840,118 @@ function HpSectionDesc({ children }) {
 }
 
 // ---------- HomeScreen — cinematic landing ----------
+function getWheelRotationDeg(el) {
+  const tr = window.getComputedStyle(el).transform;
+  if (!tr || tr === "none") return 0;
+  const m = new DOMMatrixReadOnly(tr);
+  let deg = Math.atan2(m.b, m.a) * (180 / Math.PI);
+  if (deg < 0) deg += 360;
+  return deg;
+}
+
+const WHEEL_IDLE_MS_PER_REV = 22000;
+const WHEEL_IDLE_DEG_PER_MS = 360 / WHEEL_IDLE_MS_PER_REV;
+const WHEEL_SPIN_DECAY_PER_MS = 0.00105;
+const WHEEL_SPIN_BOOST_DEG_PER_MS = 1.2;
+const WHEEL_SPIN_MIN_BOOST_MS = 3200;
+const WHEEL_SPIN_IDLE_SETTLE_MS = 2800;
+
+function setWheelTransform(el, angleDeg) {
+  el.style.transform = `rotate3d(0, 0, 1, ${angleDeg}deg)`;
+}
+
 function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin, onSpotifyContinue, onPlayLocal }) {
+  const wheelRef = useRefApp(null);
+  const wheelMotionRef = useRefApp({
+    angle: 0,
+    velocity: WHEEL_IDLE_DEG_PER_MS,
+    lastTs: null,
+    rafId: null,
+    nearIdleMs: 0,
+    totalBoostMs: 0,
+  });
+
+  const stopWheelRaf = () => {
+    const motion = wheelMotionRef.current;
+    if (motion.rafId !== null) cancelAnimationFrame(motion.rafId);
+    motion.rafId = null;
+  };
+
+  const resumeCssIdleSpin = (el) => {
+    const motion = wheelMotionRef.current;
+    const settledDeg = ((motion.angle % 360) + 360) % 360;
+    el.style.willChange = "";
+    el.style.transform = "";
+    el.classList.remove("wheel-spin-js");
+    el.style.setProperty("--wheel-start", `${settledDeg}deg`);
+    void el.offsetWidth;
+    el.classList.add("wheel-spin");
+    motion.velocity = WHEEL_IDLE_DEG_PER_MS;
+    motion.nearIdleMs = 0;
+    motion.totalBoostMs = 0;
+  };
+
+  useEffectApp(() => {
+    const el = wheelRef.current;
+    if (!el) return;
+    el.classList.add("wheel-spin");
+    return () => stopWheelRaf();
+  }, []);
+
+  const handlePressSpin = () => {
+    const el = wheelRef.current;
+    if (!el) return;
+
+    const motion = wheelMotionRef.current;
+    stopWheelRaf();
+
+    const startAngle = getWheelRotationDeg(el);
+    motion.angle = startAngle;
+    motion.velocity = Math.max(WHEEL_IDLE_DEG_PER_MS * 52, WHEEL_SPIN_BOOST_DEG_PER_MS);
+    motion.lastTs = null;
+    motion.nearIdleMs = 0;
+    motion.totalBoostMs = 0;
+
+    el.classList.remove("wheel-spin");
+    el.classList.add("wheel-spin-js");
+    el.style.willChange = "transform";
+    setWheelTransform(el, startAngle);
+
+    const tick = (ts) => {
+      if (motion.lastTs === null) motion.lastTs = ts;
+      let dt = ts - motion.lastTs;
+      motion.lastTs = ts;
+      if (dt > 20) dt = 20;
+
+      motion.totalBoostMs += dt;
+
+      if (motion.velocity > WHEEL_IDLE_DEG_PER_MS * 1.01) {
+        motion.velocity = WHEEL_IDLE_DEG_PER_MS
+          + (motion.velocity - WHEEL_IDLE_DEG_PER_MS) * Math.exp(-WHEEL_SPIN_DECAY_PER_MS * dt);
+        motion.nearIdleMs = 0;
+      } else {
+        motion.velocity = WHEEL_IDLE_DEG_PER_MS;
+        motion.nearIdleMs += dt;
+      }
+
+      motion.angle += motion.velocity * dt;
+      setWheelTransform(el, motion.angle);
+
+      if (
+        motion.totalBoostMs >= WHEEL_SPIN_MIN_BOOST_MS
+        && motion.nearIdleMs >= WHEEL_SPIN_IDLE_SETTLE_MS
+      ) {
+        stopWheelRaf();
+        resumeCssIdleSpin(el);
+        return;
+      }
+
+      motion.rafId = requestAnimationFrame(tick);
+    };
+
+    motion.rafId = requestAnimationFrame(tick);
+  };
+
   return (
     <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain">
       {/* Drifting notes */}
@@ -526,24 +971,34 @@ function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin
         </div>
       </div>
 
-      {/* Star burst accent */}
-      <div className="absolute right-3 sm:right-6 top-[88px] z-20 hidden sm:grid star-burst">
-        <div className="text-white">
-          <div className="text-[10px] tracking-[0.12em]">PRESS</div>
-          <div className="text-[22px]">SPIN</div>
-        </div>
-      </div>
+      {/* Star burst — tap to ramp wheel spin */}
+      <button
+        type="button"
+        onClick={handlePressSpin}
+        aria-label="Press spin"
+        className="absolute right-3 sm:right-6 top-[88px] z-20 hidden sm:grid star-burst cursor-pointer transition-transform hover:scale-105 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
+      >
+        <span className="text-white pointer-events-none">
+          <span className="block text-[10px] tracking-[0.12em]">PRESS</span>
+          <span className="block text-[22px]">SPIN</span>
+        </span>
+      </button>
 
       {/* Wheel + pin */}
       <div className="relative z-10 mt-4 mx-auto" style={{ width: "min(360px, 88vw)", aspectRatio: "1 / 1" }}>
         <div className="absolute inset-0 wheel-glow"></div>
         <div className="absolute inset-0 wheel-in">
-          <div className="absolute inset-0 wheel-spin">
+          <div ref={wheelRef} className="absolute inset-0">
             <WheelSVG />
           </div>
-          {/* Pin pointing down from top */}
-          <div className="absolute left-1/2 -translate-x-1/2 -top-3 pin-bounce" style={{ filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.6))" }}>
-            <WheelPin />
+          {/* Pin — wrapper holds position; inner bounce must not override translateX */}
+          <div
+            className="absolute left-1/2 z-10 -translate-x-1/2 pointer-events-none"
+            style={{ top: "1%", marginTop: "-24px", filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.6))" }}
+          >
+            <div className="pin-bounce inline-flex justify-center">
+              <WheelPin />
+            </div>
           </div>
         </div>
       </div>
@@ -970,31 +1425,27 @@ function SpotifyImporter({ token, dispatch, deviceId, onDisconnect, existingTitl
 
 // ---------- LobbyScreen ----------
 function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave, spotifyToken, onSpotifyDisconnect }) {
-  const [title, setTitle] = useStateApp("");
-  const [artist, setArtist] = useStateApp("");
   const [err, setErr] = useStateApp("");
-  const [loading, setLoading] = useStateApp(false);
 
   const me = state.players.find(p => p.deviceId === deviceId);
   const mySongs = state.songs.filter(s => s.ownerDeviceId === deviceId);
 
-  const submit = async () => {
+  const addSongFromSearch = async (song) => {
+    const key = (song.title + "|" + song.artist).toLowerCase();
+    if (mySongs.some(s => (s.title + "|" + s.artist).toLowerCase() === key)) {
+      setErr("You already added that song.");
+      return;
+    }
     setErr("");
-    if (!title.trim() || !artist.trim()) return setErr("Add song title and artist.");
-    setLoading(true);
-    let found = null;
-    try { found = await findPreview(title.trim(), artist.trim()); } catch (e) {}
-    setLoading(false);
     dispatch({
       type: "addSong",
       ownerDeviceId: deviceId,
-      title: title.trim(),
-      artist: artist.trim(),
-      url: found ? found.preview : null,
-      cover: found ? found.cover : null,
-      noPreview: !found,
+      title: song.title,
+      artist: song.artist,
+      url: song.url,
+      cover: song.cover,
+      noPreview: song.noPreview,
     });
-    setTitle(""); setArtist("");
   };
 
   const owners = new Set(state.songs.map(s => s.ownerDeviceId));
@@ -1087,36 +1538,16 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave, s
         )}
 
         {/* Add a song */}
-        <div className="mt-4 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-4 space-y-3 grain relative z-10">
+        <div className="mt-4 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-4 space-y-3 grain relative z-10 overflow-visible">
           <div className="text-[11px] uppercase tracking-[0.16em] text-white/45 -mb-1">
             {me ? `Adding as ${me.name}` : "Adding song"}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Song title" value={title} onChange={setTitle} placeholder="Levitating" />
-            <Field label="Artist" value={artist} onChange={setArtist} placeholder="Dua Lipa" />
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-white/40">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            <span>30-sec preview fetched automatically.</span>
-          </div>
-          {err && <div className="text-[12px] text-rose-400">{err}</div>}
-          <button
-            disabled={loading}
-            onClick={submit}
-            className={cx(
-              "w-full mt-1 rounded-xl py-3 text-sm font-semibold active:scale-[0.99] transition flex items-center justify-center gap-2",
-              loading
-                ? "bg-[#282828] text-[#B3B3B3] cursor-wait"
-                : "bg-[#1DB954] hover:bg-[#1ed760] text-black"
-            )}
-          >
-            {loading && (
-              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
-              </svg>
-            )}
-            {loading ? "Finding preview…" : "Add to pool"}
-          </button>
+          <SongSearchPicker
+            variant="lobby"
+            error={err}
+            onClearError={() => setErr("")}
+            onAdd={addSongFromSearch}
+          />
         </div>
 
         <div className="mt-6 px-6 relative z-10">
@@ -1152,9 +1583,10 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave, s
   );
 }
 
-function PoolCounter({ count, variant }) {
-  const remaining = Math.max(0, 3 - count);
-  const ready = count >= 3;
+function PoolCounter({ count, variant, target }) {
+  const minTarget = target != null ? target : 3;
+  const remaining = Math.max(0, minTarget - count);
+  const ready = count >= minTarget;
   const discs = Math.min(count, 8);
   const hp = variant === "home";
   return (
@@ -1192,7 +1624,9 @@ function PoolCounter({ count, variant }) {
       <div className={cx("mt-3", hp ? "font-mono text-[10px] uppercase tracking-[0.18em] text-white/45" : "text-[11px] text-white/50")}>
         {ready
           ? <span style={hp ? { color: "var(--hp-gold)" } : undefined} className={hp ? "" : "text-[#1DB954]"}>Ready to spin — start whenever.</span>
-          : `${remaining} more to start${count > 0 ? "" : " · min 3"}.`}
+          : target != null
+            ? `${remaining} more song${remaining === 1 ? "" : "s"} to start · ${count}/${minTarget}`
+            : `${remaining} more to start${count > 0 ? "" : " · min 3"}.`}
       </div>
     </div>
   );
@@ -1520,7 +1954,9 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
   if (!song) return null;
 
   const playersById = Object.fromEntries(state.players.map(p => [p.deviceId, p]));
-  const guessers = state.players.filter(p => p.deviceId !== song.ownerDeviceId);
+  const guessers = cinematic
+    ? state.players
+    : state.players.filter(p => p.deviceId !== song.ownerDeviceId);
   const guessedIds = guessers.filter(g => state.guesses[g.deviceId]).map(g => g.deviceId);
   const wrongCount = guessedIds.filter(id => state.guesses[id] !== song.ownerDeviceId).length;
   const sneaky = guessedIds.length > 0 && wrongCount * 2 > guessedIds.length;
@@ -1553,7 +1989,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                   ✦ Sneaky · {song.ownerName} +1
                 </span>
               )}
-              {state.fastestCorrect && (
+              {!cinematic && state.fastestCorrect && (
                 <span
                   className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-mono uppercase tracking-[0.12em]"
                   style={{ background: "rgba(245,197,24,0.12)", color: "var(--hp-gold)", borderColor: "rgba(245,197,24,0.35)" }}
@@ -1619,7 +2055,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                     <span className="font-medium">{noGuess ? "—" : playersById[target]?.name}</span>
                   </div>
                   <div className="text-[11px] text-white/40 font-mono tabular">
-                    {noGuess ? "didn't lock in" : right ? "correct" : "wrong"}{seconds ? ` · ${seconds}s` : ""}
+                    {noGuess ? "didn't lock in" : right ? "correct" : "wrong"}{!cinematic && seconds ? ` · ${seconds}s` : ""}
                     {state.streaks[guesser.deviceId] >= 2 && right && (
                       <span className="ml-1" style={cinematic ? { color: "var(--hp-gold)" } : undefined}>
                         🔥 {state.streaks[guesser.deviceId]}
@@ -1796,15 +2232,15 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
       </div>
 
       {podium.length >= 2 && (
-        <div className="mt-6 px-6">
-          <div className="flex items-end justify-center gap-2 h-[200px]">
+        <div className="mt-12 px-6 pt-2">
+          <div className="flex items-end justify-center gap-2 h-[228px]">
             {podiumOrder.map(idx => {
               const row = podium[idx];
               if (!row) return <div key={idx} className="flex-1" />;
               return (
                 <div key={row.deviceId} className="flex-1 flex flex-col items-center justify-end">
-                  <div className="mb-2 flex flex-col items-center">
-                    <Avatar name={row.name} size={idx === 0 ? 48 : 36} />
+                  <div className="mb-2 flex flex-col items-center shrink-0">
+                    <Avatar name={row.name} size={idx === 0 ? 44 : 36} />
                     <div className="mt-1 text-xs font-medium truncate max-w-[100px] text-center">{row.name}</div>
                     <div className="text-[10px] text-white/40 font-mono tabular">{row.score} pt{row.score === 1 ? "" : "s"}</div>
                   </div>
@@ -1890,18 +2326,27 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
 // ---------- LocalLobbyScreen — turn-based pass-around add ----------
 function LocalLobbyScreen({ state, dispatch, onLeave }) {
   const lastPlayer = state.players[state.players.length - 1] || null;
-  const [step, setStep] = useStateApp(state.players.length === 0 ? "intro" : "songs");
+  const [step, setStep] = useStateApp(() => {
+    if (state.players.length > 0) return "songs";
+    if (state.songsPerPlayer) return "name";
+    return "rounds";
+  });
   const [currentId, setCurrentId] = useStateApp(lastPlayer ? lastPlayer.deviceId : null);
   const [name, setName] = useStateApp("");
-  const [title, setTitle] = useStateApp("");
-  const [artist, setArtist] = useStateApp("");
-  const [loading, setLoading] = useStateApp(false);
   const [err, setErr] = useStateApp("");
+  const [songSearchOpen, setSongSearchOpen] = useStateApp(false);
+  const [roundPick, setRoundPick] = useStateApp(Math.min(state.songsPerPlayer || 3, 5));
 
+  const songsPerPlayer = state.songsPerPlayer || 1;
   const currentPlayer = state.players.find(p => p.deviceId === currentId) || null;
-  const owners = new Set(state.songs.map(s => s.ownerDeviceId));
-  const canStart = state.songs.length >= 3 && owners.size >= 2;
+  const poolTarget = state.players.length * songsPerPlayer;
+  const playersReady = state.players.length >= 3 && state.players.every(p =>
+    state.songs.filter(s => s.ownerDeviceId === p.deviceId).length >= songsPerPlayer
+  );
+  const canStart = state.songsPerPlayer && playersReady;
   const currentSongs = currentPlayer ? state.songs.filter(s => s.ownerDeviceId === currentPlayer.deviceId) : [];
+  const currentSongSlotsLeft = Math.max(0, songsPerPlayer - currentSongs.length);
+  const atSongLimit = currentSongs.length >= songsPerPlayer;
 
   const submitName = () => {
     setErr("");
@@ -1917,33 +2362,48 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
     setStep("songs");
   };
 
-  const submitSong = async () => {
-    setErr("");
+  const addSongFromSearch = async (song) => {
     if (!currentPlayer) return;
-    if (!title.trim() || !artist.trim()) return setErr("Add a song title and artist.");
-    setLoading(true);
-    let found = null;
-    try { found = await findPreview(title.trim(), artist.trim()); } catch (e) {}
-    setLoading(false);
+    if (atSongLimit) {
+      setErr(`You already added ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"}.`);
+      return;
+    }
+    const key = (song.title + "|" + song.artist).toLowerCase();
+    const mine = state.songs.filter(s => s.ownerDeviceId === currentPlayer.deviceId);
+    if (mine.some(s => (s.title + "|" + s.artist).toLowerCase() === key)) {
+      setErr("You already added that song.");
+      return;
+    }
+    setErr("");
     dispatch({
       type: "addSong",
       ownerDeviceId: currentPlayer.deviceId,
-      title: title.trim(),
-      artist: artist.trim(),
-      url: found ? found.preview : null,
-      cover: found ? found.cover : null,
-      noPreview: !found,
+      title: song.title,
+      artist: song.artist,
+      url: song.url,
+      cover: song.cover,
+      noPreview: song.noPreview,
     });
-    setTitle(""); setArtist("");
+  };
+
+  const confirmRounds = () => {
+    dispatch({ type: "setSongsPerPlayer", count: roundPick });
+    setStep("name");
+    setErr("");
   };
 
   const passDevice = () => {
+    if (!atSongLimit) {
+      setErr(`Add ${currentSongSlotsLeft} more song${currentSongSlotsLeft === 1 ? "" : "s"} before passing.`);
+      return;
+    }
+    setErr("");
     setStep("pass");
   };
   const startNextPlayer = () => {
     setCurrentId(null);
     setStep("name");
-    setTitle(""); setArtist(""); setName(""); setErr("");
+    setName(""); setErr("");
   };
 
   const start = () => {
@@ -1954,14 +2414,18 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
   return (
     <HomeStageShell>
       <HomeHeader
-        subtitle={`Pass-around · ${state.players.length} player${state.players.length === 1 ? "" : "s"}`}
+        subtitle={
+          state.songsPerPlayer
+            ? `Pass-around · ${state.players.length} player${state.players.length === 1 ? "" : "s"} · ${state.songsPerPlayer} round${state.songsPerPlayer === 1 ? "" : "s"} each`
+            : `Pass-around · ${state.players.length} player${state.players.length === 1 ? "" : "s"}`
+        }
         onBack={onLeave}
         backLabel="Leave"
       />
 
       <div className="px-6 mt-4 flex-1">
         <HpSectionTitle>
-          {step === "intro" && <>SINGLE DEVICE <span style={{ color: "var(--hp-gold)" }}>MODE</span></>}
+          {step === "rounds" && <>HOW MANY <span style={{ color: "var(--hp-gold)" }}>ROUNDS?</span></>}
           {step === "name" && <>NEXT <span style={{ color: "var(--hp-gold)" }}>PLAYER</span></>}
           {step === "songs" && currentPlayer && (
             <>HEY, <span style={{ color: "var(--hp-magenta)" }}>{currentPlayer.name.toUpperCase()}</span></>
@@ -1969,9 +2433,11 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
           {step === "pass" && <>PASS THE <span style={{ color: "var(--hp-gold)" }}>PHONE</span></>}
         </HpSectionTitle>
         <HpSectionDesc>
-          {step === "intro" && "Take turns — name, drop a song, hand it off. One phone, whole crew."}
+          {step === "rounds" && "Each round = one song per player. Pick how many songs everyone will add."}
           {step === "name" && "Type your name to start adding songs."}
-          {step === "songs" && "Add at least one track. Done? Pass the phone to the next player."}
+          {step === "songs" && (
+            <>Add <span style={{ color: "var(--hp-gold)" }}>{songsPerPlayer}</span> song{songsPerPlayer === 1 ? "" : "s"} — then pass the phone.</>
+          )}
           {step === "pass" && "No peeking — hand the device over, then they tap to continue."}
         </HpSectionDesc>
 
@@ -1985,7 +2451,7 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
                   <div key={p.deviceId} className="flex items-center gap-2 rounded-full px-2.5 py-1 border border-white/15 bg-black/35">
                     <Avatar name={p.name} size={20} />
                     <span className="text-[12px] font-medium">{p.name}</span>
-                    <span className="text-[11px] font-mono text-[var(--hp-gold)] tabular">{cnt}♪</span>
+                    <span className="text-[11px] font-mono text-[var(--hp-gold)] tabular">{cnt}/{songsPerPlayer}♪</span>
                   </div>
                 );
               })}
@@ -1993,9 +2459,32 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
           </div>
         )}
 
-        {step === "intro" && (
+        {step === "rounds" && (
           <div className="mt-6">
-            <HpGoldBtn onClick={() => setStep("name")}>ADD FIRST PLAYER →</HpGoldBtn>
+            <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Songs per player</div>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRoundPick(n)}
+                    className={cx(
+                      "min-w-[52px] h-[52px] rounded-xl font-display text-[26px] tabular border transition",
+                      roundPick === n
+                        ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
+                        : "bg-[#22222c] text-white/80 border-white/15 hover:border-[var(--hp-gold)]/40"
+                    )}
+                  >{n}</button>
+                ))}
+              </div>
+              <div className="mt-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+                {roundPick} round{roundPick === 1 ? "" : "s"} · each player adds {roundPick} song{roundPick === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div className="mt-4">
+              <HpGoldBtn onClick={confirmRounds}>LOCK IN {roundPick} ROUND{roundPick === 1 ? "" : "S"} →</HpGoldBtn>
+            </div>
           </div>
         )}
 
@@ -2011,12 +2500,12 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
 
         {step === "songs" && currentPlayer && (
           <>
-            {currentSongs.length > 0 && (
+            {currentSongs.length > 0 && !songSearchOpen && (
               <div className="mt-4">
-                <HpPanel className="p-3 space-y-1.5">
+                <div className="rounded-2xl border border-white/14 bg-[#16161e] p-3 space-y-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
                   <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40 mb-2 px-1">Your picks</div>
                   {currentSongs.map(s => (
-                    <div key={s.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-3 py-2">
+                    <div key={s.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#22222c] px-3 py-2">
                       {s.cover ? (
                         <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover border border-white/10" />
                       ) : (
@@ -2034,29 +2523,42 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
                       >remove</button>
                     </div>
                   ))}
-                </HpPanel>
+                </div>
               </div>
             )}
 
-            <div className="mt-4 space-y-3">
-              <HpPanel className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <HpField label="Song title" value={title} onChange={setTitle} placeholder="Levitating" />
-                  <HpField label="Artist" value={artist} onChange={setArtist} placeholder="Dua Lipa" />
+            {!atSongLimit && (
+              <div className="song-suggest-shell mt-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--hp-magenta)] mb-2">
+                  Song {currentSongs.length + 1} of {songsPerPlayer}
                 </div>
-                <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                  <span>30-sec preview fetched automatically</span>
-                </div>
-                {err && <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{err}</div>}
-                <HpPrimaryBtn disabled={loading} onClick={submitSong}>
-                  {loading ? "FINDING PREVIEW…" : "ADD SONG"}
-                </HpPrimaryBtn>
-              </HpPanel>
-              <HpMutedBtn disabled={currentSongs.length === 0} onClick={passDevice}>
-                PASS TO NEXT PLAYER →
-              </HpMutedBtn>
-            </div>
+                <SongSearchPicker
+                  variant="home"
+                  autoFocus
+                  error={err}
+                  onClearError={() => setErr("")}
+                  onOpenChange={setSongSearchOpen}
+                  onAdd={addSongFromSearch}
+                />
+              </div>
+            )}
+
+            {atSongLimit && !songSearchOpen && (
+              <div className="mt-4 rounded-2xl border border-[var(--hp-neon)]/30 bg-[var(--hp-neon)]/10 px-4 py-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--hp-neon)]">
+                All {songsPerPlayer} song{songsPerPlayer === 1 ? "" : "s"} added — pass the phone
+              </div>
+            )}
+
+            {!songSearchOpen && (
+              <div className="mt-4">
+                {err && !atSongLimit && (
+                  <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{err}</div>
+                )}
+                <HpMutedBtn disabled={!atSongLimit} onClick={passDevice}>
+                  PASS TO NEXT PLAYER →
+                </HpMutedBtn>
+              </div>
+            )}
           </>
         )}
 
@@ -2072,19 +2574,23 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
           </div>
         )}
 
-        <div className="mt-6">
-          <PoolCounter count={state.songs.length} variant="home" />
-        </div>
+        {!(step === "songs" && songSearchOpen) && (
+          <>
+            <div className="mt-6">
+              <PoolCounter count={state.songs.length} target={poolTarget} variant="home" />
+            </div>
 
-        <div className="mt-6 pb-4">
-          <HpPrimaryBtn disabled={!canStart} onClick={start}>
-            {canStart
-              ? `START ${state.songs.length} ROUND${state.songs.length === 1 ? "" : "S"} →`
-              : owners.size < 2
-                ? `NEED 2+ PLAYERS WITH SONGS (${owners.size})`
-                : `NEED ${3 - state.songs.length} MORE SONG${3 - state.songs.length === 1 ? "" : "S"}`}
-          </HpPrimaryBtn>
-        </div>
+            <div className="mt-6 pb-4">
+              <HpPrimaryBtn disabled={!canStart} onClick={start}>
+                {canStart
+                  ? `START ${state.songs.length} ROUND${state.songs.length === 1 ? "" : "S"} →`
+                  : state.players.length < 3
+                    ? `NEED ${3 - state.players.length} MORE PLAYER${3 - state.players.length === 2 ? "" : "S"} (${state.players.length}/3)`
+                    : `NEED ${poolTarget - state.songs.length} MORE SONG${poolTarget - state.songs.length === 1 ? "" : "S"} (${state.songs.length}/${poolTarget})`}
+              </HpPrimaryBtn>
+            </div>
+          </>
+        )}
       </div>
     </HomeStageShell>
   );
@@ -2098,12 +2604,9 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
   const [duration, setDuration] = useStateApp(30);
   const [playing, setPlaying] = useStateApp(false);
   const [audioError, setAudioError] = useStateApp(false);
-  const [activeId, setActiveId] = useStateApp(null);
-
   useEffectApp(() => {
     setProgress(0);
     setAudioError(!song || song.noPreview || !song.url);
-    setActiveId(null);
     const a = audioRef.current;
     if (!a || !song || !song.url) return;
     a.currentTime = 0;
@@ -2142,17 +2645,19 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
     };
   }, []);
 
-  // Auto-reveal when all non-owner players have locked in
+  const voteOrder = state.players.map(p => p.deviceId);
+  const currentVoterId = voteOrder.find(id => state.guesses[id] == null) || null;
+  const votersLocked = voteOrder.filter(id => state.guesses[id] != null).length;
+
+  // Auto-reveal when every player has voted (one at a time, in order)
   useEffectApp(() => {
-    if (!song) return;
-    const nonOwners = state.players.filter(p => p.deviceId !== song.ownerDeviceId).map(p => p.deviceId);
-    if (nonOwners.length === 0) return;
-    const allIn = nonOwners.every(id => state.guesses[id] != null);
+    if (!song || voteOrder.length === 0) return;
+    const allIn = voteOrder.every(id => state.guesses[id] != null);
     if (allIn) {
       const t = setTimeout(() => dispatch({ type: "revealRound" }), 350);
       return () => clearTimeout(t);
     }
-  }, [song, state.players, state.guesses, dispatch]);
+  }, [song, voteOrder, state.guesses, dispatch]);
 
   if (!song) return null;
 
@@ -2165,18 +2670,16 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
     } else { a.pause(); }
   };
 
-  const activePlayer = activeId ? state.players.find(p => p.deviceId === activeId) : null;
-  const isOwner = activePlayer && activePlayer.deviceId === song.ownerDeviceId;
-  const activeGuess = activeId ? state.guesses[activeId] : null;
-  const guessersLocked = state.players.filter(p => p.deviceId !== song.ownerDeviceId && state.guesses[p.deviceId]).length;
-  const totalGuessers = state.players.length - 1;
+  const activePlayer = currentVoterId ? state.players.find(p => p.deviceId === currentVoterId) : null;
+  const activeGuess = currentVoterId ? state.guesses[currentVoterId] : null;
 
   const pickTarget = (targetId) => {
-    if (!activeId || isOwner) return;
-    if (targetId === activeId) return;
+    if (!currentVoterId || activeGuess) return;
+    const ownerPicksSelf = currentVoterId === song.ownerDeviceId && targetId === currentVoterId;
+    if (targetId === currentVoterId && !ownerPicksSelf) return;
     dispatch({
       type: "submitGuess",
-      deviceId: activeId,
+      deviceId: currentVoterId,
       targetDeviceId: targetId,
       now: performance.now(),
     });
@@ -2248,31 +2751,31 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
 
         <div className="mt-5">
           <div className="flex items-baseline justify-between">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Tap your name to guess</div>
-            <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{guessersLocked}/{totalGuessers} locked</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Voting in order — one at a time</div>
+            <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{votersLocked}/{voteOrder.length} voted</div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {state.players.map(p => {
               const locked = state.guesses[p.deviceId] != null;
-              const active = activeId === p.deviceId;
+              const isTurn = currentVoterId === p.deviceId;
               return (
-                <button
+                <div
                   key={p.deviceId}
-                  onClick={() => setActiveId(p.deviceId)}
                   className={cx(
-                    "px-2.5 py-1.5 rounded-full text-xs font-medium border transition flex items-center gap-1.5",
-                    active
+                    "px-2.5 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5",
+                    isTurn
                       ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
                       : locked
                         ? "bg-black/40 border-[var(--hp-neon)]/40 text-[var(--hp-neon)]"
-                        : "bg-black/35 border-white/15 text-white/70 hover:border-[var(--hp-gold)]/40"
+                        : "bg-black/35 border-white/15 text-white/50"
                   )}
                 >
                   <Avatar name={p.name} size={18} />
                   <span>{p.name}</span>
                   {locked && <span>✓</span>}
-                </button>
+                  {isTurn && !locked && <span className="font-mono text-[9px] uppercase tracking-[0.1em]">now</span>}
+                </div>
               );
             })}
           </div>
@@ -2280,15 +2783,7 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
           <HpPanel className="mt-4 p-3 min-h-[180px]">
             {!activePlayer ? (
               <div className="text-center font-mono text-[11px] uppercase tracking-[0.18em] text-white/40 py-10">
-                Pass the phone — tap your name above
-              </div>
-            ) : isOwner ? (
-              <div className="text-center py-8 px-4">
-                <div className="font-display text-[48px] leading-none" style={{ color: "var(--hp-gold)" }}>♪</div>
-                <div className="mt-2 font-display text-[20px] tracking-[0.06em]" style={{ color: "var(--hp-neon)" }}>
-                  THIS ONE'S YOURS, {activePlayer.name.toUpperCase()}
-                </div>
-                <HpSectionDesc>Hand the phone to someone else — no guess for you.</HpSectionDesc>
+                Everyone's voted — revealing…
               </div>
             ) : activeGuess ? (
               <div className="text-center py-6">
@@ -2301,32 +2796,45 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
                     {state.players.find(p => p.deviceId === activeGuess)?.name}
                   </div>
                 </div>
-                <HpSectionDesc>Pass the phone to the next player.</HpSectionDesc>
+                <HpSectionDesc>Pass the phone — next player's turn.</HpSectionDesc>
               </div>
             ) : (
               <>
                 <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                  <span style={{ color: "var(--hp-magenta)" }}>{activePlayer.name}</span>, who do you suspect?
+                  Pass the phone to <span style={{ color: "var(--hp-magenta)" }}>{activePlayer.name}</span>
+                  {activePlayer.deviceId === song.ownerDeviceId && (
+                    <span className="text-white/45"> · your song — pick yourself</span>
+                  )}
+                </div>
+                <div className="px-2 pt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                  Who submitted this track?
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {state.players.map(p => {
-                    const self = p.deviceId === activeId;
+                    const isSelf = p.deviceId === currentVoterId;
+                    const ownerMayPickSelf = isSelf && currentVoterId === song.ownerDeviceId;
+                    const disabled = isSelf && !ownerMayPickSelf;
                     return (
                       <button
                         key={p.deviceId}
-                        disabled={self}
+                        disabled={disabled}
                         onClick={() => pickTarget(p.deviceId)}
                         className={cx(
                           "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
-                          self
+                          disabled
                             ? "bg-black/25 border-white/8 text-white/30 cursor-not-allowed"
                             : "bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
                         )}
                       >
-                        <Avatar name={p.name} size={26} dim={self} />
+                        <Avatar name={p.name} size={26} dim={disabled} />
                         <div className="min-w-0">
                           <div className="truncate">{p.name}</div>
-                          {self && <div className="font-mono text-[9px] uppercase text-white/30">that's you</div>}
+                          {ownerMayPickSelf && (
+                            <div className="font-mono text-[9px] uppercase text-[var(--hp-gold)]">that's you</div>
+                          )}
+                          {disabled && !ownerMayPickSelf && (
+                            <div className="font-mono text-[9px] uppercase text-white/30">that's you</div>
+                          )}
                         </div>
                       </button>
                     );
@@ -2338,7 +2846,7 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
         </div>
 
         <div className="pt-6 pb-2 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
-          Reveal when everyone's locked in
+          Reveal when everyone has voted
         </div>
       </div>
     </HomeStageShell>
