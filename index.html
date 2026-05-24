@@ -155,9 +155,93 @@
     pointer-events: none;
   }
 
-  /* Wheel rotation */
-  @keyframes wheel-spin { to { transform: rotate(360deg) } }
-  .wheel-spin { animation: wheel-spin 22s linear infinite; transform-origin: 50% 50%; }
+  /* Opaque song search (single-device) — no glass / transparency */
+  .song-suggest-shell {
+    position: relative;
+    z-index: 30;
+    background: #16161e;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 1rem;
+    padding: 1rem;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.72);
+  }
+  .song-suggest-input {
+    width: 100%;
+    border-radius: 0.5rem;
+    background: #26262f;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+    color: #fff;
+    outline: none;
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+  .song-suggest-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+  .song-suggest-input:focus {
+    border-color: var(--hp-gold);
+    background: #2e2e3a;
+  }
+  .song-suggest-panel {
+    margin-top: 0.625rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #1c1c26;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  }
+  .song-suggest-panel-header {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: #22222e;
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .song-suggest-list {
+    max-height: min(260px, 40vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #1c1c26;
+  }
+  .song-suggest-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: #1c1c26;
+    color: #fff;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .song-suggest-row:last-child { border-bottom: none; }
+  .song-suggest-row:hover,
+  .song-suggest-row.is-active {
+    background: #2a2438;
+  }
+
+  /* Wheel rotation — --wheel-start keeps angle continuous after a ramp spin */
+  @keyframes wheel-spin {
+    from { transform: rotate(var(--wheel-start, 0deg)); }
+    to   { transform: rotate(calc(var(--wheel-start, 0deg) + 360deg)); }
+  }
+  .wheel-spin {
+    animation: wheel-spin 22s linear infinite;
+    transform-origin: 50% 50%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .wheel-spin-js {
+    transform-origin: 50% 50%;
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
 
   /* Wheel entrance */
   @keyframes wheel-in {
