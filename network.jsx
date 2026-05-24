@@ -53,6 +53,8 @@ function initialState() {
     scoreDeltas: {},         // { [deviceId]: int }
     streaks: {},             // { [deviceId]: int }
     fastestCorrect: null,    // deviceId
+    localPassAround: false,  // single-device: sequential votes, owner guesses, no speed bonus
+    songsPerPlayer: null,    // single-device: each player adds this many songs (= # of rounds)
   };
 }
 
@@ -85,11 +87,22 @@ function reducer(state, action) {
         ),
       };
     }
+    case "setSongsPerPlayer": {
+      if (state.phase !== "lobby" || !state.localPassAround) return state;
+      if (state.players.length > 0) return state;
+      const count = action.count;
+      if (count < 1 || count > 5) return state;
+      return { ...state, songsPerPlayer: count };
+    }
     case "addSong": {
       if (state.phase !== "lobby") return state;
       const { ownerDeviceId, title, artist, url, cover, noPreview } = action;
       const owner = state.players.find(p => p.deviceId === ownerDeviceId);
       if (!owner) return state;
+      if (state.localPassAround && state.songsPerPlayer) {
+        const ownerCount = state.songs.filter(s => s.ownerDeviceId === ownerDeviceId).length;
+        if (ownerCount >= state.songsPerPlayer) return state;
+      }
       const id = "song_" + Math.random().toString(36).slice(2, 10);
       return {
         ...state,
@@ -106,7 +119,15 @@ function reducer(state, action) {
     case "start": {
       if (state.phase !== "lobby") return state;
       const owners = new Set(state.songs.map(s => s.ownerDeviceId));
-      if (state.songs.length < 3 || owners.size < 2) return state;
+      if (state.localPassAround) {
+        if (state.players.length < 3 || !state.songsPerPlayer) return state;
+        const allReady = state.players.every(p =>
+          state.songs.filter(s => s.ownerDeviceId === p.deviceId).length >= state.songsPerPlayer
+        );
+        if (!allReady) return state;
+      } else if (state.songs.length < 3 || owners.size < 2) {
+        return state;
+      }
       const order = shuffleArr(state.songs.map(s => s.id));
       const scores = {}, streaks = {};
       state.players.forEach(p => { scores[p.deviceId] = 0; streaks[p.deviceId] = 0; });
@@ -126,11 +147,11 @@ function reducer(state, action) {
     case "submitGuess": {
       if (state.phase !== "round") return state;
       const { deviceId, targetDeviceId, now } = action;
-      // Owner of current song doesn't guess
       const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
       if (!song) return state;
-      if (deviceId === song.ownerDeviceId) return state;
-      if (deviceId === targetDeviceId) return state;
+      if (!state.localPassAround && deviceId === song.ownerDeviceId) return state;
+      const ownerPicksSelf = state.localPassAround && deviceId === song.ownerDeviceId && targetDeviceId === deviceId;
+      if (deviceId === targetDeviceId && !ownerPicksSelf) return state;
       // Don't overwrite locked-in guesses
       if (state.guesses[deviceId]) return state;
       return {
@@ -144,16 +165,18 @@ function reducer(state, action) {
       const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
       if (!song) return state;
 
-      const guessers = state.players
-        .filter(p => p.online !== false && p.deviceId !== song.ownerDeviceId)
-        .map(p => p.deviceId);
+      const guessers = state.localPassAround
+        ? state.players.filter(p => p.online !== false).map(p => p.deviceId)
+        : state.players.filter(p => p.online !== false && p.deviceId !== song.ownerDeviceId).map(p => p.deviceId);
 
-      // Compute fastest correct guess (only among locked-in guesses)
-      let fastest = null, fastestT = Infinity;
-      for (const g of guessers) {
-        if (state.guesses[g] === song.ownerDeviceId) {
-          const t = state.guessTimes[g];
-          if (t != null && t < fastestT) { fastestT = t; fastest = g; }
+      let fastest = null;
+      if (!state.localPassAround) {
+        let fastestT = Infinity;
+        for (const g of guessers) {
+          if (state.guesses[g] === song.ownerDeviceId) {
+            const t = state.guessTimes[g];
+            if (t != null && t < fastestT) { fastestT = t; fastest = g; }
+          }
         }
       }
 
@@ -176,7 +199,7 @@ function reducer(state, action) {
         const correct = guess === song.ownerDeviceId;
         if (correct) {
           delta = 1;
-          if (g === fastest) delta += 1;
+          if (!state.localPassAround && g === fastest) delta += 1;
           const newStreak = (streaks[g] || 0) + 1;
           streaks[g] = newStreak;
           if (newStreak >= 3) delta += 1;
@@ -223,6 +246,8 @@ function reducer(state, action) {
       return {
         ...initialState(),
         hostDeviceId: state.hostDeviceId,
+        localPassAround: state.localPassAround,
+        songsPerPlayer: state.songsPerPlayer,
         players: state.players,
         scores: cleared,
         streaks: cleared,
@@ -276,7 +301,7 @@ function useSession(mode, displayName) {
       // Local mode: no auto-seed. Players are added one at a time via the
       // turn-based local lobby. We still mark this device as "host" so
       // start/reveal/next buttons render.
-      setState(s => ({ ...s, hostDeviceId: deviceId }));
+      setState(s => ({ ...s, hostDeviceId: deviceId, localPassAround: true }));
       return () => {};
     }
 
