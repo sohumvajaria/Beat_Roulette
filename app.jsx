@@ -359,8 +359,154 @@ function ArtistPhotoBackdrop() {
   );
 }
 
+// ---------- Home-style stage (local / cinematic flows) ----------
+function HomeStageShell({ children }) {
+  return (
+    <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain fade-enter">
+      <DriftingNotes count={18} />
+      <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint pointer-events-none"></div>
+      <div className="relative z-10 flex flex-col min-h-[100dvh] pb-5">{children}</div>
+      <div className="absolute bottom-0 left-0 right-0 h-[14px] hp-screenprint pointer-events-none"></div>
+    </div>
+  );
+}
+
+function HomeHeader({ subtitle, onBack, backLabel, right }) {
+  return (
+    <>
+      <div className="pt-6 px-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              aria-label={backLabel || "Back"}
+              className="shrink-0 w-9 h-9 -ml-0.5 grid place-items-center rounded-full border border-white/20 bg-black/40 hover:bg-black/60 hover:border-[var(--hp-gold)]/50 active:scale-95 transition"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+            </button>
+          )}
+          <div className="w-2 h-2 rounded-full bg-[var(--hp-gold)] shrink-0"></div>
+          <div className="font-display text-[14px] tracking-[0.32em] text-white/85 truncate">BEAT ROULETTE</div>
+        </div>
+        {right}
+      </div>
+      {subtitle && (
+        <div className="px-6 mt-1 font-mono text-[10px] uppercase tracking-[0.24em] text-white/40">{subtitle}</div>
+      )}
+    </>
+  );
+}
+
+function HpPanel({ children, className, center }) {
+  return (
+    <div className={cx(
+      "rounded-2xl border border-white/12 bg-black/40 backdrop-blur-sm p-4 relative",
+      center && "text-center",
+      className
+    )}>
+      {children}
+    </div>
+  );
+}
+
+function HpField({ label, value, onChange, placeholder, mono, maxLength, autoFocus }) {
+  return (
+    <label className="block">
+      <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45 mb-1.5">{label}</div>
+      <input
+        value={value}
+        autoFocus={autoFocus}
+        maxLength={maxLength}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={cx(
+          "w-full rounded-lg bg-black/45 border border-white/15 px-3 py-2.5 text-sm text-white outline-none",
+          "placeholder:text-white/30 focus:border-[var(--hp-gold)] focus:bg-black/60 transition",
+          mono && "font-mono text-[14px] tracking-[0.2em] uppercase"
+        )}
+      />
+    </label>
+  );
+}
+
+function HpPrimaryBtn({ children, onClick, disabled, className }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        "w-full rounded-xl px-5 py-3.5 font-display tracking-[0.14em] text-[20px] transition",
+        disabled
+          ? "bg-white/10 text-white/35 cursor-not-allowed border border-white/10"
+          : "btn-spotify",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function HpGoldBtn({ children, onClick, disabled, className }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        "w-full rounded-xl px-5 py-3.5 font-display tracking-[0.14em] text-[20px] transition",
+        disabled
+          ? "border border-white/10 text-white/35 cursor-not-allowed"
+          : "btn-gold",
+        className
+      )}
+    >
+      <span className="relative z-[1]">{children}</span>
+    </button>
+  );
+}
+
+function HpMutedBtn({ children, onClick, disabled, className }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        "w-full rounded-xl px-5 py-3 font-mono text-[11px] uppercase tracking-[0.2em] border transition",
+        disabled
+          ? "border-white/8 bg-black/20 text-white/30 cursor-not-allowed"
+          : "border-white/20 bg-black/35 text-white/75 hover:border-[var(--hp-gold)]/40 hover:text-white",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function HpSectionTitle({ children }) {
+  return (
+    <h1
+      className="font-display text-white leading-[0.92] tracking-[0.01em]"
+      style={{ fontSize: "clamp(32px, 9vw, 48px)" }}
+    >
+      {children}
+    </h1>
+  );
+}
+
+function HpSectionDesc({ children }) {
+  return (
+    <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.22em] text-white/55 leading-relaxed">
+      {children}
+    </p>
+  );
+}
+
 // ---------- HomeScreen — cinematic landing ----------
-function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin, onSpotifyContinue, onPlayLocal, onJoinByCode }) {
+function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin, onSpotifyContinue, onPlayLocal }) {
   return (
     <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain">
       {/* Drifting notes */}
@@ -414,7 +560,7 @@ function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin
       </div>
 
       {/* CTA buttons */}
-      <div className="relative z-10 px-6 mt-6 pb-2 max-w-[420px] mx-auto">
+      <div className="relative z-10 px-6 mt-6 max-w-[420px] mx-auto">
         {spotifyError && (
           <div className="btn-in mb-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
             Spotify: {spotifyError}
@@ -445,27 +591,19 @@ function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin
         </div>
 
         {/* Secondary CTA */}
-        <button
+        <HpGoldBtn
           onClick={onPlayLocal}
-          className="btn-in s2 btn-gold w-full rounded-xl px-5 py-4 font-display tracking-[0.14em] text-[22px] mt-5"
+          className="btn-in s2 mt-5 py-4 text-[22px]"
         >
           PLAY NOW · NO LOGIN
-        </button>
+        </HpGoldBtn>
         <div className="btn-in s2 mt-1.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
           Single device · Quick play
         </div>
-
-        {/* Tertiary — join existing room */}
-        <button
-          onClick={onJoinByCode}
-          className="btn-in s3 w-full mt-5 text-center text-[12px] tracking-[0.2em] uppercase text-white/55 hover:text-white transition"
-        >
-          Have a room code? <span style={{ color: "var(--hp-gold)" }}>Join party →</span>
-        </button>
       </div>
 
       {/* Marquee strip at bottom */}
-      <div className="relative z-10 mt-8 border-y border-white/10 bg-black/30 overflow-hidden">
+      <div className="relative z-10 mt-4 border-y border-white/10 bg-black/30 overflow-hidden">
         <div className="marquee-track flex whitespace-nowrap py-2 font-display tracking-[0.2em] text-[18px]">
           {Array.from({ length: 2 }).map((_, k) => (
             <div key={k} className="flex items-center shrink-0" style={{ width: "max-content" }}>
@@ -525,7 +663,6 @@ function StartScreen({ onChoose, spotifyToken, spotifyLoading, spotifyError, onS
         onSpotifyLogin={onSpotifyLogin}
         onSpotifyContinue={() => setView("host")}
         onPlayLocal={() => onChoose({ kind: "local" })}
-        onJoinByCode={() => setView("join")}
       />
     );
   }
@@ -1015,24 +1152,34 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave, s
   );
 }
 
-function PoolCounter({ count }) {
+function PoolCounter({ count, variant }) {
   const remaining = Math.max(0, 3 - count);
   const ready = count >= 3;
   const discs = Math.min(count, 8);
+  const hp = variant === "home";
   return (
-    <div className="rounded-2xl border border-[#282828] bg-[#181818] px-5 py-5 text-center grain relative overflow-hidden">
-            <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Songs in the pool</div>
+    <div className={cx(
+      "rounded-2xl px-5 py-5 text-center relative overflow-hidden",
+      hp ? "border border-white/12 bg-black/40 backdrop-blur-sm" : "border border-[#282828] bg-[#181818] grain"
+    )}>
+      <div className={cx(
+        "uppercase tracking-[0.22em]",
+        hp ? "font-mono text-[10px] text-white/45" : "text-[10px] text-white/40"
+      )}>Songs in the pool</div>
       <div className="relative mt-1 flex items-baseline justify-center">
-        <span className="pool-number">{count}</span>
+        <span className="pool-number" style={hp ? { color: "var(--hp-gold)" } : undefined}>{count}</span>
       </div>
       {discs > 0 && (
         <div className="mt-3 flex items-center justify-center -space-x-2">
           {Array.from({ length: discs }).map((_, i) => (
             <div
               key={i}
-              className="w-5 h-5 rounded-full border border-[#3a3a3a]"
+              className="w-5 h-5 rounded-full border"
               style={{
-                background: "radial-gradient(circle at center, #1DB954 0 14%, #282828 16% 55%, #181818 56% 100%)",
+                borderColor: hp ? "rgba(245,197,24,0.35)" : "#3a3a3a",
+                background: hp
+                  ? "radial-gradient(circle at center, var(--hp-gold) 0 14%, #282828 16% 55%, #181818 56% 100%)"
+                  : "radial-gradient(circle at center, #1DB954 0 14%, #282828 16% 55%, #181818 56% 100%)",
                 transform: `translateY(${(i % 2) * -1}px)`,
               }}
             />
@@ -1042,9 +1189,9 @@ function PoolCounter({ count }) {
           )}
         </div>
       )}
-      <div className="mt-3 text-[11px] text-white/50">
+      <div className={cx("mt-3", hp ? "font-mono text-[10px] uppercase tracking-[0.18em] text-white/45" : "text-[11px] text-white/50")}>
         {ready
-          ? <span className="text-[#1DB954]">Ready to roll — host can start whenever.</span>
+          ? <span style={hp ? { color: "var(--hp-gold)" } : undefined} className={hp ? "" : "text-[#1DB954]"}>Ready to spin — start whenever.</span>
           : `${remaining} more to start${count > 0 ? "" : " · min 3"}.`}
       </div>
     </div>
@@ -1052,12 +1199,34 @@ function PoolCounter({ count }) {
 }
 
 // ---------- Splash ----------
-function SplashScreen({ roundNumber, totalRounds, onDone, isHost }) {
+function SplashScreen({ roundNumber, totalRounds, onDone, isHost, cinematic }) {
   useEffectApp(() => {
     if (!isHost) return; // only host advances state
     const t = setTimeout(onDone, 1500);
     return () => clearTimeout(t);
   }, [onDone, isHost]);
+  if (cinematic) {
+    return (
+      <div className="fade-enter absolute inset-0 z-30 hp-stage hp-vignette hp-grain overflow-hidden">
+        <DriftingNotes count={14} />
+        <div className="absolute inset-0 grid place-items-center">
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-24 splash-strip bg-gradient-to-r from-transparent via-[var(--hp-gold)]/20 to-transparent"></div>
+          <div className="relative text-center splash-num px-6">
+            <div className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/45">Round</div>
+            <div
+              className="mt-1 font-display leading-none text-white"
+              style={{ fontSize: "clamp(88px, 24vw, 120px)" }}
+            >
+              <span style={{ color: "var(--hp-gold)" }}>{roundNumber}</span>
+            </div>
+            <div className="-mt-1 font-mono text-[11px] uppercase tracking-[0.28em] text-white/40 tabular">
+              of {totalRounds}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="fade-enter absolute inset-0 grid place-items-center bg-[var(--bg)] z-30">
       <div className="relative w-full">
@@ -1075,21 +1244,23 @@ function SplashScreen({ roundNumber, totalRounds, onDone, isHost }) {
 }
 
 // ---------- Timer ring ----------
-function TimerRing({ progress, size = 168, stroke = 6 }) {
+function TimerRing({ progress, size = 168, stroke = 6, gold }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
+  const gradId = gold ? "ringGold" : "ring";
+  const accent = gold ? "#F5C518" : "#1DB954";
   return (
     <svg width={size} height={size} className="pulse-glow">
       <defs>
-        <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#1DB954" />
-          <stop offset="100%" stopColor="#1DB954" />
+        <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={accent} />
+          <stop offset="100%" stopColor={accent} />
         </linearGradient>
       </defs>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
       <circle
         cx={size/2} cy={size/2} r={r}
-        fill="none" stroke="url(#ring)" strokeWidth={stroke}
+        fill="none" stroke={`url(#${gradId})`} strokeWidth={stroke}
         strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={c * (1 - progress)}
@@ -1344,7 +1515,7 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
 }
 
 // ---------- ResultsScreen ----------
-function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave }) {
+function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) {
   const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
   if (!song) return null;
 
@@ -1361,38 +1532,70 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave }) {
 
   const isFinal = state.roundIdx + 1 >= state.order.length;
 
-  return (
-    <div className="fade-enter relative">
-      <TopBar subtitle="Reveal" onBack={onLeave} backLabel="Leave game" />
-
-      <div className="mx-6 mt-1 rounded-3xl border border-[#282828] bg-[#181818] p-5 grain relative overflow-hidden">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">It was…</div>
-        <div className="mt-2 flex items-center gap-3">
-          <Avatar name={song.ownerName} size={48} />
-          <div className="min-w-0">
-            <div className="text-3xl font-semibold tracking-tight leading-none truncate">{song.ownerName}</div>
-            <div className="mt-1 text-sm text-white/60 truncate">
-              <span className="text-white/90">{song.title}</span> · {song.artist}
+  const content = (
+    <>
+      <div className="mx-6 mt-1">
+        {cinematic ? (
+          <HpPanel>
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>It was…</div>
+            <div className="mt-2 flex items-center gap-3">
+              <Avatar name={song.ownerName} size={48} />
+              <div className="min-w-0">
+                <div className="font-display text-[36px] leading-none tracking-[0.02em] truncate">{song.ownerName}</div>
+                <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white/55 truncate">
+                  <span className="text-white/80">{song.title}</span> · {song.artist}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {sneaky && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-black/40 text-white/60 border border-white/15 font-mono uppercase tracking-[0.12em]">
+                  ✦ Sneaky · {song.ownerName} +1
+                </span>
+              )}
+              {state.fastestCorrect && (
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-mono uppercase tracking-[0.12em]"
+                  style={{ background: "rgba(245,197,24,0.12)", color: "var(--hp-gold)", borderColor: "rgba(245,197,24,0.35)" }}
+                >
+                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +1
+                </span>
+              )}
+            </div>
+          </HpPanel>
+        ) : (
+          <div className="rounded-3xl border border-[#282828] bg-[#181818] p-5 grain relative overflow-hidden">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">It was…</div>
+            <div className="mt-2 flex items-center gap-3">
+              <Avatar name={song.ownerName} size={48} />
+              <div className="min-w-0">
+                <div className="text-3xl font-semibold tracking-tight leading-none truncate">{song.ownerName}</div>
+                <div className="mt-1 text-sm text-white/60 truncate">
+                  <span className="text-white/90">{song.title}</span> · {song.artist}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {sneaky && (
+                <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#282828] text-[#B3B3B3] border border-[#3a3a3a]">
+                  ✦ Sneaky pick · {song.ownerName} +1
+                </span>
+              )}
+              {state.fastestCorrect && (
+                <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30">
+                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +1
+                </span>
+              )}
             </div>
           </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {sneaky && (
-            <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#282828] text-[#B3B3B3] border border-[#3a3a3a]">
-              ✦ Sneaky pick · {song.ownerName} +1
-            </span>
-          )}
-          {state.fastestCorrect && (
-            <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30">
-              ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +1
-            </span>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="mt-6 px-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Guesses</div>
+        <div className={cx(
+          "uppercase tracking-[0.18em]",
+          cinematic ? "font-mono text-[10px] text-white/40" : "text-[11px] text-white/40"
+        )}>Guesses</div>
         <div className="mt-3 space-y-2">
           {guessers.map(guesser => {
             const target = state.guesses[guesser.deviceId];
@@ -1404,8 +1607,9 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave }) {
             return (
               <div key={guesser.deviceId} className={cx(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
-                noGuess ? "border-[#282828] bg-[#181818] opacity-60" :
-                right ? "border-[#1DB954]/40 bg-[#1DB954]/[0.08]" : "border-[#282828] bg-[#181818]"
+                cinematic
+                  ? (noGuess ? "border-white/10 bg-black/30 opacity-60" : right ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35")
+                  : (noGuess ? "border-[#282828] bg-[#181818] opacity-60" : right ? "border-[#1DB954]/40 bg-[#1DB954]/[0.08]" : "border-[#282828] bg-[#181818]")
               )}>
                 <Avatar name={guesser.name} size={28} />
                 <div className="min-w-0 flex-1">
@@ -1416,13 +1620,19 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave }) {
                   </div>
                   <div className="text-[11px] text-white/40 font-mono tabular">
                     {noGuess ? "didn't lock in" : right ? "correct" : "wrong"}{seconds ? ` · ${seconds}s` : ""}
-                    {state.streaks[guesser.deviceId] >= 2 && right && <span className="ml-1 text-[#1DB954]">🔥 {state.streaks[guesser.deviceId]}</span>}
+                    {state.streaks[guesser.deviceId] >= 2 && right && (
+                      <span className="ml-1" style={cinematic ? { color: "var(--hp-gold)" } : undefined}>
+                        🔥 {state.streaks[guesser.deviceId]}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className={cx(
                   "text-[12px] font-semibold px-2 py-1 rounded-full tabular",
-                  delta > 0 ? "bg-[#1DB954]/15 text-[#1DB954]" : "bg-[#282828] text-[#535353]"
-                )}>
+                  delta > 0
+                    ? (cinematic ? "text-[var(--hp-gold)]" : "bg-[#1DB954]/15 text-[#1DB954]")
+                    : (cinematic ? "bg-black/40 text-white/35" : "bg-[#282828] text-[#535353]")
+                )} style={delta > 0 && cinematic ? { background: "rgba(245,197,24,0.15)" } : undefined}>
                   {delta > 0 ? `+${delta}` : "—"}
                 </div>
               </div>
@@ -1432,21 +1642,34 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave }) {
       </div>
 
       <div className="mt-6 px-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Leaderboard</div>
-        <div className="mt-3 rounded-2xl border border-[#282828] bg-[#181818] overflow-hidden">
+        <div className={cx(
+          "uppercase tracking-[0.18em]",
+          cinematic ? "font-mono text-[10px] text-white/40" : "text-[11px] text-white/40"
+        )}>Leaderboard</div>
+        <div className={cx(
+          "mt-3 overflow-hidden",
+          cinematic ? "rounded-2xl border border-white/12 bg-black/40 backdrop-blur-sm" : "rounded-2xl border border-[#282828] bg-[#181818]"
+        )}>
           {sorted.map((row, i) => (
             <div key={row.deviceId} className={cx(
-              "flex items-center gap-3 px-4 py-3 border-b border-[#282828] last:border-b-0",
-              row.score === topScore && row.score > 0 && "bg-[#1DB954]/[0.08]"
+              "flex items-center gap-3 px-4 py-3 border-b last:border-b-0",
+              cinematic ? "border-white/10" : "border-[#282828]",
+              row.score === topScore && row.score > 0 && (cinematic ? "bg-[var(--hp-gold)]/10" : "bg-[#1DB954]/[0.08]")
             )}>
               <div className="w-5 text-xs font-mono text-white/40 tabular">{i + 1}</div>
               <Avatar name={row.name} size={26} />
               <div className="text-sm font-medium flex-1 truncate">
                 {row.name}
-                {row.deviceId === deviceId && <span className="ml-1 text-[10px] text-[#1DB954]">you</span>}
+                {row.deviceId === deviceId && (
+                  <span className={cx("ml-1 text-[10px]", !cinematic && "text-[#1DB954]")} style={cinematic ? { color: "var(--hp-gold)" } : undefined}>
+                    you
+                  </span>
+                )}
               </div>
               {row.delta > 0 && (
-                <div className="text-[11px] font-mono tabular text-[#1DB954]">+{row.delta}</div>
+                <div className="text-[11px] font-mono tabular" style={cinematic ? { color: "var(--hp-gold)" } : undefined}>
+                  +{row.delta}
+                </div>
               )}
               <div className="text-sm font-mono tabular w-7 text-right">{row.score}</div>
             </div>
@@ -1456,24 +1679,49 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave }) {
 
       <div className="px-6 pt-6 pb-10">
         {isHost ? (
-          <button
-            onClick={() => dispatch({ type: "nextRound" })}
-            className="w-full rounded-xl py-4 text-base font-semibold transition bg-[#1DB954] hover:bg-[#1ed760] text-black"
-          >
-            {isFinal ? "See final results →" : "Next round →"}
-          </button>
+          cinematic ? (
+            <HpPrimaryBtn onClick={() => dispatch({ type: "nextRound" })}>
+              {isFinal ? "SEE FINAL RESULTS →" : "NEXT ROUND →"}
+            </HpPrimaryBtn>
+          ) : (
+            <button
+              onClick={() => dispatch({ type: "nextRound" })}
+              className="w-full rounded-xl py-4 text-base font-semibold transition bg-[#1DB954] hover:bg-[#1ed760] text-black"
+            >
+              {isFinal ? "See final results →" : "Next round →"}
+            </button>
+          )
         ) : (
-          <div className="w-full rounded-xl py-4 text-center bg-[#181818] border border-[#282828] text-[#B3B3B3] text-sm">
+          <div className={cx(
+            "w-full rounded-xl py-4 text-center text-sm",
+            cinematic ? "border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]" : "bg-[#181818] border border-[#282828] text-[#B3B3B3]"
+          )}>
             Waiting for host to {isFinal ? "wrap up" : "advance"}…
           </div>
         )}
       </div>
+    </>
+  );
+
+  if (cinematic) {
+    return (
+      <HomeStageShell>
+        <HomeHeader subtitle="Reveal" onBack={onLeave} backLabel="Leave game" />
+        <div className="flex-1">{content}</div>
+      </HomeStageShell>
+    );
+  }
+
+  return (
+    <div className="fade-enter relative">
+      <TopBar subtitle="Reveal" onBack={onLeave} backLabel="Leave game" />
+      {content}
     </div>
   );
 }
 
 // ---------- FinalScreen ----------
-function FinalScreen({ state, dispatch, deviceId, isHost, onLeave }) {
+function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) {
   const sorted = state.players
     .map(p => ({ deviceId: p.deviceId, name: p.name, score: state.scores[p.deviceId] || 0 }))
     .sort((a, b) => b.score - a.score);
@@ -1486,23 +1734,23 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave }) {
       left: Math.random() * 100,
       delay: Math.random() * 2,
       dur: 3 + Math.random() * 3,
-      color: ["#1DB954","#1ed760","#FFFFFF","#B3B3B3","#535353"][i % 5],
+      color: cinematic
+        ? ["#F5C518", "#FF2D95", "#1DB954", "#F4ECD3", "#FFFFFF"][i % 5]
+        : ["#1DB954", "#1ed760", "#FFFFFF", "#B3B3B3", "#535353"][i % 5],
       rot: Math.random() * 360,
       key: i,
-    })), []);
+    })), [cinematic]);
 
   const podium = sorted.slice(0, 3);
   const podiumOrder = [1, 0, 2];
   const heights = { 0: 132, 1: 96, 2: 72 };
-  const podiumColors = [
-    "bg-[#1DB954]",
-    "bg-[#535353]",
-    "bg-[#282828]",
-  ];
+  const podiumColors = cinematic
+    ? ["bg-[var(--hp-gold)]", "bg-[#535353]", "bg-[#282828]"]
+    : ["bg-[#1DB954]", "bg-[#535353]", "bg-[#282828]"];
 
-  return (
-    <div className="fade-enter relative min-h-[100dvh]">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+  const inner = (
+    <>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         {confetti.map(c => (
           <div key={c.key} className="confetti" style={{
             left: c.left + "%", background: c.color,
@@ -1512,18 +1760,39 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave }) {
         ))}
       </div>
 
-      <TopBar subtitle="Final score" onBack={onLeave} backLabel="Leave game" />
+      <div className="relative z-10">
+        {cinematic ? (
+          <HomeHeader subtitle="Final score" onBack={onLeave} backLabel="Leave game" />
+        ) : (
+          <TopBar subtitle="Final score" onBack={onLeave} backLabel="Leave game" />
+        )}
 
-      <div className="mx-6 mt-2 rounded-3xl border border-[#282828] bg-[#181818] p-6 grain relative overflow-hidden">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">
-          {winners.length > 1 ? "It's a tie" : "Winner"}
-        </div>
-        <div className="mt-1 text-4xl font-semibold tracking-tight leading-tight">
-          {winners.length === 0 ? "Nobody, somehow" : winners.map(w => w.name).join(" & ")}
-        </div>
-        <div className="mt-2 text-sm text-white/65 tabular">
-          {winnerScore} point{winnerScore === 1 ? "" : "s"} · taste validated.
-        </div>
+      <div className="mx-6 mt-2">
+        {cinematic ? (
+          <HpPanel className="p-6">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>
+              {winners.length > 1 ? "It's a tie" : "Winner"}
+            </div>
+            <div className="mt-1 font-display text-[44px] leading-[0.95] tracking-[0.02em]">
+              {winners.length === 0 ? "NOBODY, SOMEHOW" : winners.map(w => w.name.toUpperCase()).join(" & ")}
+            </div>
+            <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55 tabular">
+              {winnerScore} point{winnerScore === 1 ? "" : "s"} · taste validated
+            </div>
+          </HpPanel>
+        ) : (
+          <div className="rounded-3xl border border-[#282828] bg-[#181818] p-6 grain relative overflow-hidden">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">
+              {winners.length > 1 ? "It's a tie" : "Winner"}
+            </div>
+            <div className="mt-1 text-4xl font-semibold tracking-tight leading-tight">
+              {winners.length === 0 ? "Nobody, somehow" : winners.map(w => w.name).join(" & ")}
+            </div>
+            <div className="mt-2 text-sm text-white/65 tabular">
+              {winnerScore} point{winnerScore === 1 ? "" : "s"} · taste validated.
+            </div>
+          </div>
+        )}
       </div>
 
       {podium.length >= 2 && (
@@ -1551,26 +1820,32 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave }) {
       )}
 
       <div className="mt-6 px-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">All standings</div>
+        <div className={cx(
+          "uppercase tracking-[0.18em]",
+          cinematic ? "font-mono text-[10px] text-white/40" : "text-[11px] text-white/40"
+        )}>All standings</div>
         <div className="mt-3 space-y-2">
           {sorted.map((row, i) => {
             const isWinner = row.score === winnerScore && winnerScore > 0;
             return (
               <div key={row.deviceId} className={cx(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
-                isWinner ? "border-[#1DB954]/40 bg-[#1DB954]/[0.08]" : "border-[#282828] bg-[#181818]"
+                cinematic
+                  ? (isWinner ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35")
+                  : (isWinner ? "border-[#1DB954]/40 bg-[#1DB954]/[0.08]" : "border-[#282828] bg-[#181818]")
               )}>
                 <div className={cx(
                   "w-7 h-7 rounded-full grid place-items-center text-xs font-semibold tabular",
-                  i === 0 ? "bg-[#1DB954]/20 text-[#1DB954]" :
-                  i === 1 ? "bg-[#3a3a3a] text-[#B3B3B3]" :
-                  i === 2 ? "bg-[#282828] text-[#B3B3B3]" :
-                            "bg-[#181818] text-[#535353]"
+                  cinematic
+                    ? (i === 0 ? "bg-[var(--hp-gold)]/20 text-[var(--hp-gold)]" : i === 1 ? "bg-[#3a3a3a] text-[#B3B3B3]" : i === 2 ? "bg-[#282828] text-[#B3B3B3]" : "bg-black/40 text-[#535353]")
+                    : (i === 0 ? "bg-[#1DB954]/20 text-[#1DB954]" : i === 1 ? "bg-[#3a3a3a] text-[#B3B3B3]" : i === 2 ? "bg-[#282828] text-[#B3B3B3]" : "bg-[#181818] text-[#535353]")
                 )}>{i + 1}</div>
                 <Avatar name={row.name} size={26} />
                 <div className="text-sm font-medium flex-1 truncate">
                   {row.name}
-                  {row.deviceId === deviceId && <span className="ml-1 text-[10px] text-[#1DB954]">you</span>}
+                  {row.deviceId === deviceId && (
+                    <span className={cx("ml-1 text-[10px]", !cinematic && "text-[#1DB954]")} style={cinematic ? { color: "var(--hp-gold)" } : undefined}>you</span>
+                  )}
                 </div>
                 <div className="text-sm font-mono tabular">{row.score}</div>
               </div>
@@ -1581,15 +1856,33 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave }) {
 
       <div className="px-6 pt-8 pb-10">
         {isHost ? (
-          <button onClick={() => dispatch({ type: "reset" })} className="w-full rounded-xl py-4 text-base font-semibold transition bg-white text-black hover:bg-white/90">
-            Play again
-          </button>
+          cinematic ? (
+            <HpGoldBtn onClick={() => dispatch({ type: "reset" })}>PLAY AGAIN →</HpGoldBtn>
+          ) : (
+            <button onClick={() => dispatch({ type: "reset" })} className="w-full rounded-xl py-4 text-base font-semibold transition bg-white text-black hover:bg-white/90">
+              Play again
+            </button>
+          )
         ) : (
-          <div className="w-full rounded-xl py-4 text-center bg-[#181818] border border-[#282828] text-[#B3B3B3] text-sm">
+          <div className={cx(
+            "w-full rounded-xl py-4 text-center text-sm",
+            cinematic ? "border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]" : "bg-[#181818] border border-[#282828] text-[#B3B3B3]"
+          )}>
             Waiting for host to start a new round…
           </div>
         )}
       </div>
+      </div>
+    </>
+  );
+
+  if (cinematic) {
+    return <HomeStageShell>{inner}</HomeStageShell>;
+  }
+
+  return (
+    <div className="fade-enter relative min-h-[100dvh]">
+      {inner}
     </div>
   );
 }
@@ -1659,42 +1952,40 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
   };
 
   return (
-    <div className="fade-enter relative">
-      <ArtistPhotoBackdrop />
-      <div className="relative">
-        <TopBar
-          subtitle={`Pass-around · ${state.players.length} player${state.players.length === 1 ? "" : "s"}`}
-          onBack={onLeave}
-          backLabel="Leave"
-        />
+    <HomeStageShell>
+      <HomeHeader
+        subtitle={`Pass-around · ${state.players.length} player${state.players.length === 1 ? "" : "s"}`}
+        onBack={onLeave}
+        backLabel="Leave"
+      />
 
-        <div className="px-6 relative z-10">
-          <h1 className="text-[26px] leading-[1.05] font-semibold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-            {step === "intro" && "Single device mode."}
-            {step === "name" && "Next player up."}
-            {step === "songs" && currentPlayer && <>Hey, <span className="text-[#1DB954]">{currentPlayer.name}</span>.</>}
-            {step === "pass" && "Pass the phone."}
-          </h1>
-          <p className="mt-1.5 text-sm text-white/65 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
-            {step === "intro" && "Take turns. Each player enters their name, drops a song or two, then hands the phone to someone else."}
-            {step === "name" && "Type your name to start adding songs."}
-            {step === "songs" && "Add at least one song. When you're done, hand the phone to the next player."}
-            {step === "pass" && "Don't peek at the song list — hand the device to the next player and let them tap to continue."}
-          </p>
-        </div>
+      <div className="px-6 mt-4 flex-1">
+        <HpSectionTitle>
+          {step === "intro" && <>SINGLE DEVICE <span style={{ color: "var(--hp-gold)" }}>MODE</span></>}
+          {step === "name" && <>NEXT <span style={{ color: "var(--hp-gold)" }}>PLAYER</span></>}
+          {step === "songs" && currentPlayer && (
+            <>HEY, <span style={{ color: "var(--hp-magenta)" }}>{currentPlayer.name.toUpperCase()}</span></>
+          )}
+          {step === "pass" && <>PASS THE <span style={{ color: "var(--hp-gold)" }}>PHONE</span></>}
+        </HpSectionTitle>
+        <HpSectionDesc>
+          {step === "intro" && "Take turns — name, drop a song, hand it off. One phone, whole crew."}
+          {step === "name" && "Type your name to start adding songs."}
+          {step === "songs" && "Add at least one track. Done? Pass the phone to the next player."}
+          {step === "pass" && "No peeking — hand the device over, then they tap to continue."}
+        </HpSectionDesc>
 
-        {/* Players added so far (compact) */}
         {state.players.length > 0 && step !== "songs" && (
-          <div className="mt-5 px-6 relative z-10">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-2">Added so far</div>
+          <div className="mt-5">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">Added so far</div>
             <div className="flex flex-wrap gap-2">
               {state.players.map(p => {
                 const cnt = state.songs.filter(s => s.ownerDeviceId === p.deviceId).length;
                 return (
-                  <div key={p.deviceId} className="flex items-center gap-2 rounded-full px-2.5 py-1 bg-[#282828]">
+                  <div key={p.deviceId} className="flex items-center gap-2 rounded-full px-2.5 py-1 border border-white/15 bg-black/35">
                     <Avatar name={p.name} size={20} />
-                    <span className="text-[12px]">{p.name}</span>
-                    <span className="text-[11px] font-mono text-white/40 tabular">{cnt}♪</span>
+                    <span className="text-[12px] font-medium">{p.name}</span>
+                    <span className="text-[11px] font-mono text-[var(--hp-gold)] tabular">{cnt}♪</span>
                   </div>
                 );
               })}
@@ -1702,158 +1993,100 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
           </div>
         )}
 
-        {/* ---- INTRO ---- */}
         {step === "intro" && (
-          <div className="mt-6 px-6 relative z-10">
-            <button
-              onClick={() => setStep("name")}
-              className="w-full rounded-2xl px-5 py-4 text-left bg-[#1DB954] hover:bg-[#1ed760] text-black active:scale-[0.99] transition"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-black/70 font-semibold">Begin</div>
-                  <div className="mt-0.5 text-lg font-semibold">Add first player</div>
-                </div>
-                <ArrowRight />
-              </div>
-            </button>
+          <div className="mt-6">
+            <HpGoldBtn onClick={() => setStep("name")}>ADD FIRST PLAYER →</HpGoldBtn>
           </div>
         )}
 
-        {/* ---- NAME ENTRY ---- */}
         {step === "name" && (
-          <div className="mt-6 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-4 space-y-3 grain relative z-10">
-            <Field label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
-            {err && <div className="text-[12px] text-rose-400">{err}</div>}
-            <button
-              disabled={!name.trim()}
-              onClick={submitName}
-              className={cx(
-                "w-full rounded-xl py-3 text-sm font-semibold transition border",
-                name.trim()
-                  ? "bg-[#1DB954] hover:bg-[#1ed760] text-black border-transparent"
-                  : "bg-[#282828] text-[#535353] border-transparent cursor-not-allowed"
-              )}
-            >
-              I'm in →
-            </button>
+          <div className="mt-6 space-y-3">
+            <HpPanel>
+              <HpField label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
+              {err && <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{err}</div>}
+            </HpPanel>
+            <HpPrimaryBtn disabled={!name.trim()} onClick={submitName}>I'M IN →</HpPrimaryBtn>
           </div>
         )}
 
-        {/* ---- ADDING SONGS ---- */}
         {step === "songs" && currentPlayer && (
           <>
             {currentSongs.length > 0 && (
-              <div className="mt-4 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-3 relative z-10">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/40 mb-2 px-1">Your picks</div>
-                <div className="space-y-1.5">
+              <div className="mt-4">
+                <HpPanel className="p-3 space-y-1.5">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40 mb-2 px-1">Your picks</div>
                   {currentSongs.map(s => (
-                    <div key={s.id} className="flex items-center gap-2 rounded-xl bg-[#282828] px-3 py-2">
+                    <div key={s.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-3 py-2">
                       {s.cover ? (
-                        <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover" />
+                        <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover border border-white/10" />
                       ) : (
-                        <div className="w-9 h-9 rounded-md bg-[#282828]"></div>
+                        <div className="w-9 h-9 rounded-md bg-black/50 border border-white/10"></div>
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="text-sm truncate font-medium">{s.title}</div>
                         <div className="text-[11px] text-white/50 truncate">
-                          {s.artist}{s.noPreview && <span className="ml-1.5 text-[#B3B3B3]">· no preview</span>}
+                          {s.artist}{s.noPreview && <span className="ml-1.5 text-white/35">· no preview</span>}
                         </div>
                       </div>
                       <button
                         onClick={() => dispatch({ type: "removeSong", songId: s.id })}
-                        className="text-[11px] text-white/40 hover:text-rose-400 px-2 py-1 rounded-md"
+                        className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40 hover:text-[var(--hp-magenta)] px-2 py-1"
                       >remove</button>
                     </div>
                   ))}
-                </div>
+                </HpPanel>
               </div>
             )}
 
-            <div className="mt-4 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-4 space-y-3 grain relative z-10">
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Song title" value={title} onChange={setTitle} placeholder="Levitating" />
-                <Field label="Artist" value={artist} onChange={setArtist} placeholder="Dua Lipa" />
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-white/40">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                <span>30-sec preview fetched automatically.</span>
-              </div>
-              {err && <div className="text-[12px] text-rose-400">{err}</div>}
-              <button
-                disabled={loading}
-                onClick={submitSong}
-                className={cx(
-                  "w-full rounded-xl py-3 text-sm font-semibold flex items-center justify-center gap-2 border transition",
-                  loading
-                    ? "bg-[#282828] text-[#B3B3B3] cursor-wait border-transparent"
-                    : "bg-[#1DB954] hover:bg-[#1ed760] text-black border-transparent"
-                )}
-              >
-                {loading && (
-                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
-                  </svg>
-                )}
-                {loading ? "Finding preview…" : "Add song"}
-              </button>
-            </div>
-
-            <div className="mt-4 mx-6 grid grid-cols-1 gap-2 relative z-10">
-              <button
-                disabled={currentSongs.length === 0}
-                onClick={passDevice}
-                className={cx(
-                  "rounded-xl py-3.5 text-sm font-semibold border transition",
-                  currentSongs.length === 0
-                    ? "bg-[#181818] border-[#282828] text-[#535353]"
-                    : "bg-[#282828] border-transparent hover:bg-[#3a3a3a] text-white"
-                )}
-              >
-                Pass to next player →
-              </button>
+            <div className="mt-4 space-y-3">
+              <HpPanel className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <HpField label="Song title" value={title} onChange={setTitle} placeholder="Levitating" />
+                  <HpField label="Artist" value={artist} onChange={setArtist} placeholder="Dua Lipa" />
+                </div>
+                <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  <span>30-sec preview fetched automatically</span>
+                </div>
+                {err && <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{err}</div>}
+                <HpPrimaryBtn disabled={loading} onClick={submitSong}>
+                  {loading ? "FINDING PREVIEW…" : "ADD SONG"}
+                </HpPrimaryBtn>
+              </HpPanel>
+              <HpMutedBtn disabled={currentSongs.length === 0} onClick={passDevice}>
+                PASS TO NEXT PLAYER →
+              </HpMutedBtn>
             </div>
           </>
         )}
 
-        {/* ---- PASS SCREEN ---- */}
         {step === "pass" && (
-          <div className="mt-6 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-5 grain relative z-10 text-center">
-            <div className="text-6xl mb-2">🤝</div>
-            <div className="text-sm text-white/65 mb-4">Hand the phone to the next player.</div>
-            <button
-              onClick={startNextPlayer}
-              className="w-full rounded-xl py-3 text-sm font-semibold bg-[#1DB954] hover:bg-[#1ed760] text-black"
-            >
-              I'm the next player →
-            </button>
+          <div className="mt-6">
+            <HpPanel center className="py-6">
+              <div className="font-display text-[56px] leading-none" style={{ color: "var(--hp-gold)" }}>♪</div>
+              <HpSectionDesc>Hand the phone to the next player.</HpSectionDesc>
+              <div className="mt-4">
+                <HpGoldBtn onClick={startNextPlayer}>I'M THE NEXT PLAYER →</HpGoldBtn>
+              </div>
+            </HpPanel>
           </div>
         )}
 
-        <div className="mt-6 px-6 relative z-10">
-          <PoolCounter count={state.songs.length} />
+        <div className="mt-6">
+          <PoolCounter count={state.songs.length} variant="home" />
         </div>
 
-        <div className="px-6 pt-6 pb-10 relative z-10">
-          <button
-            disabled={!canStart}
-            onClick={start}
-            className={cx(
-              "w-full rounded-xl py-4 text-base font-semibold transition",
-              canStart
-                ? "bg-[#1DB954] hover:bg-[#1ed760] text-black"
-                : "bg-[#282828] text-[#535353] cursor-not-allowed"
-            )}
-          >
+        <div className="mt-6 pb-4">
+          <HpPrimaryBtn disabled={!canStart} onClick={start}>
             {canStart
-              ? `Done adding players · Start ${state.songs.length} round${state.songs.length === 1 ? "" : "s"} →`
+              ? `START ${state.songs.length} ROUND${state.songs.length === 1 ? "" : "S"} →`
               : owners.size < 2
-                ? `Need at least 2 players with songs (have ${owners.size})`
-                : `Need ${3 - state.songs.length} more song${3 - state.songs.length === 1 ? "" : "s"}`}
-          </button>
+                ? `NEED 2+ PLAYERS WITH SONGS (${owners.size})`
+                : `NEED ${3 - state.songs.length} MORE SONG${3 - state.songs.length === 1 ? "" : "S"}`}
+          </HpPrimaryBtn>
         </div>
       </div>
-    </div>
+    </HomeStageShell>
   );
 }
 
@@ -1952,33 +2185,27 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
   const secondsLeft = Math.max(0, Math.ceil((1 - progress) * (duration || 30)));
 
   return (
-    <div className="fade-enter relative">
-      {song.cover && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <img src={song.cover} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(40px) saturate(1.15)", transform: "scale(1.25)", opacity: 0.55 }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(13,7,18,0.55) 0%, rgba(13,7,18,0.80) 40%, rgba(13,7,18,0.95) 75%, var(--bg) 100%)" }} />
-        </div>
-      )}
-      <div className="relative z-10">
-        <TopBar
-          subtitle="Round in play · pass-around"
-          onBack={onLeave}
-          backLabel="Leave game"
-          right={
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Round</div>
-              <div className="font-mono text-sm font-semibold text-[#1DB954] tabular">
-                {state.roundIdx + 1}<span className="text-[#535353]">/{state.order.length}</span>
-              </div>
+    <HomeStageShell>
+      <HomeHeader
+        subtitle="Round in play · pass-around"
+        onBack={onLeave}
+        backLabel="Leave game"
+        right={
+          <div className="text-right shrink-0">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Round</div>
+            <div className="font-display text-[22px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>
+              {state.roundIdx + 1}<span className="text-white/35">/{state.order.length}</span>
             </div>
-          }
-        />
+          </div>
+        }
+      />
 
-        <div className="mx-6 mt-1 rounded-3xl border border-[#282828] bg-[#181818] p-5 grain relative overflow-hidden">
+      <div className="px-6 mt-2 flex-1">
+        <HpPanel className="p-5 overflow-hidden">
           <div className="flex flex-col items-center">
             <div className="relative grid place-items-center" style={{ width: 168, height: 168 }}>
-              <div className="absolute inset-0"><TimerRing progress={progress} /></div>
-              <div className={cx("w-[120px] h-[120px] rounded-full overflow-hidden border border-black/40 grid place-items-center relative spin-slow", !playing && "spin-paused")}>
+              <div className="absolute inset-0"><TimerRing progress={progress} gold /></div>
+              <div className={cx("w-[120px] h-[120px] rounded-full overflow-hidden border-2 border-[var(--hp-gold)]/40 grid place-items-center relative spin-slow", !playing && "spin-paused")}>
                 {song.cover ? (
                   <>
                     <img src={song.cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -1987,46 +2214,45 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
                 ) : (
                   <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, #000 0 18%, #282828 18.5% 60%, #181818 60.5% 100%)" }}></div>
                 )}
-                <div className="relative w-6 h-6 rounded-full bg-white"></div>
+                <div className="relative w-6 h-6 rounded-full bg-[var(--hp-gold)]"></div>
               </div>
-              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 text-[11px] font-mono tabular text-[#B3B3B3]">
-                0:{secondsLeft.toString().padStart(2,"0")}
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-white/15 font-mono text-[11px] tabular text-white/60">
+                0:{secondsLeft.toString().padStart(2, "0")}
               </div>
             </div>
 
-            <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">Now spinning</div>
-            <div className="mt-1 text-lg font-semibold leading-tight text-center px-4 truncate w-full">{song.title}</div>
-            <div className="text-sm text-white/65 text-center truncate w-full px-4">{song.artist}</div>
+            <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
+            <div className="mt-1 font-display text-[22px] leading-tight text-center px-4 truncate w-full tracking-[0.02em]">{song.title}</div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 text-center truncate w-full px-4">{song.artist}</div>
 
-            <div className="mt-3 flex items-center gap-3 text-[11px] text-white/45 font-mono">
+            <div className="mt-3 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
               {playing ? (
                 <div className="flex items-end gap-[2px] h-3">
-                  <div className="w-[2px] bg-[#1DB954] eq-bar"></div>
-                  <div className="w-[2px] bg-[#1DB954] eq-bar" style={{ animationDelay: "120ms" }}></div>
-                  <div className="w-[2px] bg-[#1DB954] eq-bar" style={{ animationDelay: "240ms" }}></div>
+                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)" }}></div>
+                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)", animationDelay: "120ms" }}></div>
+                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)", animationDelay: "240ms" }}></div>
                 </div>
               ) : <div className="w-2 h-2 rounded-full bg-white/30"></div>}
-              <button onClick={togglePlay} disabled={!song.url} className={cx("underline-offset-2 hover:underline", !song.url && "opacity-30 cursor-not-allowed")}>
+              <button onClick={togglePlay} disabled={!song.url} className={cx("hover:text-[var(--hp-gold)] transition", !song.url && "opacity-30 cursor-not-allowed")}>
                 {playing ? "pause" : "play"}
               </button>
             </div>
             {audioError && (
-              <div className="mt-2 text-[12px] text-[#B3B3B3] text-center">
-                Preview unavailable — guess from title & artist.
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 text-center">
+                Preview unavailable — guess from title & artist
               </div>
             )}
           </div>
           {song.url && <audio ref={audioRef} src={song.url} preload="auto" />}
-        </div>
+        </HpPanel>
 
-        {/* Player tabs */}
-        <div className="mt-6 px-6">
+        <div className="mt-5">
           <div className="flex items-baseline justify-between">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Tap your name to guess</div>
-            <div className="text-[11px] text-white/40 tabular">{guessersLocked}/{totalGuessers} locked in</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Tap your name to guess</div>
+            <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{guessersLocked}/{totalGuessers} locked</div>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2" style={{ paddingTop: 4 }}>
+          <div className="mt-3 flex flex-wrap gap-2">
             {state.players.map(p => {
               const locked = state.guesses[p.deviceId] != null;
               const active = activeId === p.deviceId;
@@ -2037,10 +2263,10 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
                   className={cx(
                     "px-2.5 py-1.5 rounded-full text-xs font-medium border transition flex items-center gap-1.5",
                     active
-                      ? "bg-white text-black border-white"
+                      ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
                       : locked
-                        ? "bg-[#1DB954]/15 border-[#1DB954]/40 text-[#1DB954]"
-                        : "bg-[#181818] border-[#282828] text-[#B3B3B3] hover:border-[#3a3a3a]"
+                        ? "bg-black/40 border-[var(--hp-neon)]/40 text-[var(--hp-neon)]"
+                        : "bg-black/35 border-white/15 text-white/70 hover:border-[var(--hp-gold)]/40"
                   )}
                 >
                   <Avatar name={p.name} size={18} />
@@ -2051,32 +2277,36 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
             })}
           </div>
 
-          <div className="mt-4 rounded-2xl border border-[#282828] bg-[#181818] p-3 min-h-[180px]">
+          <HpPanel className="mt-4 p-3 min-h-[180px]">
             {!activePlayer ? (
-              <div className="text-center text-sm text-white/40 py-10">
-                Pass the phone — whoever's turn it is, tap your name above.
+              <div className="text-center font-mono text-[11px] uppercase tracking-[0.18em] text-white/40 py-10">
+                Pass the phone — tap your name above
               </div>
             ) : isOwner ? (
               <div className="text-center py-8 px-4">
-                <div className="text-4xl mb-2">🤫</div>
-                <div className="text-sm text-[#1DB954] font-medium">This one's yours, {activePlayer.name}.</div>
-                <div className="text-[12px] text-white/50 mt-1">No guess for you. Hand the phone to someone else.</div>
+                <div className="font-display text-[48px] leading-none" style={{ color: "var(--hp-gold)" }}>♪</div>
+                <div className="mt-2 font-display text-[20px] tracking-[0.06em]" style={{ color: "var(--hp-neon)" }}>
+                  THIS ONE'S YOURS, {activePlayer.name.toUpperCase()}
+                </div>
+                <HpSectionDesc>Hand the phone to someone else — no guess for you.</HpSectionDesc>
               </div>
             ) : activeGuess ? (
               <div className="text-center py-6">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-[#1DB954] mb-2">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
                   {activePlayer.name} locked in
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Avatar name={state.players.find(p => p.deviceId === activeGuess)?.name} size={32} />
-                  <div className="text-lg font-semibold">{state.players.find(p => p.deviceId === activeGuess)?.name}</div>
+                  <div className="font-display text-[22px] tracking-[0.04em]">
+                    {state.players.find(p => p.deviceId === activeGuess)?.name}
+                  </div>
                 </div>
-                <div className="text-[11px] text-white/45 mt-3">Pass the phone to the next player.</div>
+                <HpSectionDesc>Pass the phone to the next player.</HpSectionDesc>
               </div>
             ) : (
               <>
-                <div className="px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-white/40">
-                  <span className="text-[#1DB954]">{activePlayer.name}</span>, who do you suspect?
+                <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
+                  <span style={{ color: "var(--hp-magenta)" }}>{activePlayer.name}</span>, who do you suspect?
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {state.players.map(p => {
@@ -2089,14 +2319,14 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
                         className={cx(
                           "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
                           self
-                            ? "bg-[#181818] border-[#282828] text-[#535353] cursor-not-allowed"
-                            : "bg-[#181818] border-[#282828] hover:bg-[#202020] hover:border-[#3a3a3a]"
+                            ? "bg-black/25 border-white/8 text-white/30 cursor-not-allowed"
+                            : "bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
                         )}
                       >
                         <Avatar name={p.name} size={26} dim={self} />
                         <div className="min-w-0">
                           <div className="truncate">{p.name}</div>
-                          {self && <div className="text-[10px] text-[#535353]">that's you</div>}
+                          {self && <div className="font-mono text-[9px] uppercase text-white/30">that's you</div>}
                         </div>
                       </button>
                     );
@@ -2104,14 +2334,14 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
                 </div>
               </>
             )}
-          </div>
+          </HpPanel>
         </div>
 
-        <div className="px-6 pt-6 pb-10 text-center text-[11px] text-white/35">
-          Reveal happens when everyone's locked in.
+        <div className="pt-6 pb-2 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
+          Reveal when everyone's locked in
         </div>
       </div>
-    </div>
+    </HomeStageShell>
   );
 }
 
@@ -2150,6 +2380,7 @@ function GameView({ choice, spotifyToken, onSpotifyDisconnect, onReset }) {
           totalRounds={state.order.length}
           onDone={() => enterRound.current && enterRound.current()}
           isHost={isHost}
+          cinematic={isLocal}
         />
       )}
       {state.phase === "round" && (
@@ -2157,8 +2388,8 @@ function GameView({ choice, spotifyToken, onSpotifyDisconnect, onReset }) {
           ? <LocalRoundScreen {...common} />
           : <RoundScreen {...common} />
       )}
-      {state.phase === "results" && <ResultsScreen {...common} />}
-      {state.phase === "final" && <FinalScreen {...common} />}
+      {state.phase === "results" && <ResultsScreen {...common} cinematic={isLocal} />}
+      {state.phase === "final" && <FinalScreen {...common} cinematic={isLocal} />}
     </>
   );
 }
