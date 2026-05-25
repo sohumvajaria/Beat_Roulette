@@ -88,10 +88,10 @@ function reducer(state, action) {
       };
     }
     case "setSongsPerPlayer": {
-      if (state.phase !== "lobby" || !state.localPassAround) return state;
-      if (state.players.length > 0) return state;
+      if (state.phase !== "lobby") return state;
       const count = action.count;
       if (count < 1 || count > 5) return state;
+      if (state.localPassAround && state.players.length > 0) return state;
       return { ...state, songsPerPlayer: count };
     }
     case "addSong": {
@@ -99,7 +99,7 @@ function reducer(state, action) {
       const { ownerDeviceId, title, artist, url, cover, noPreview } = action;
       const owner = state.players.find(p => p.deviceId === ownerDeviceId);
       if (!owner) return state;
-      if (state.localPassAround && state.songsPerPlayer) {
+      if (state.songsPerPlayer) {
         const ownerCount = state.songs.filter(s => s.ownerDeviceId === ownerDeviceId).length;
         if (ownerCount >= state.songsPerPlayer) return state;
       }
@@ -119,12 +119,14 @@ function reducer(state, action) {
     case "start": {
       if (state.phase !== "lobby") return state;
       const owners = new Set(state.songs.map(s => s.ownerDeviceId));
-      if (state.localPassAround) {
-        if (state.players.length < 3 || !state.songsPerPlayer) return state;
+      if (state.songsPerPlayer) {
+        if (state.players.length < 3) return state;
         const allReady = state.players.every(p =>
           state.songs.filter(s => s.ownerDeviceId === p.deviceId).length >= state.songsPerPlayer
         );
         if (!allReady) return state;
+      } else if (state.localPassAround) {
+        if (state.players.length < 3) return state;
       } else if (state.songs.length < 3 || owners.size < 2) {
         return state;
       }
@@ -149,8 +151,7 @@ function reducer(state, action) {
       const { deviceId, targetDeviceId, now } = action;
       const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
       if (!song) return state;
-      if (!state.localPassAround && deviceId === song.ownerDeviceId) return state;
-      const ownerPicksSelf = state.localPassAround && deviceId === song.ownerDeviceId && targetDeviceId === deviceId;
+      const ownerPicksSelf = deviceId === song.ownerDeviceId && targetDeviceId === deviceId;
       if (deviceId === targetDeviceId && !ownerPicksSelf) return state;
       // Don't overwrite locked-in guesses
       if (state.guesses[deviceId]) return state;
@@ -165,9 +166,7 @@ function reducer(state, action) {
       const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
       if (!song) return state;
 
-      const guessers = state.localPassAround
-        ? state.players.filter(p => p.online !== false).map(p => p.deviceId)
-        : state.players.filter(p => p.online !== false && p.deviceId !== song.ownerDeviceId).map(p => p.deviceId);
+      const guessers = state.players.filter(p => p.online !== false).map(p => p.deviceId);
 
       let fastest = null;
       if (!state.localPassAround) {
@@ -318,10 +317,18 @@ function useSession(mode, displayName) {
 
       peer.on("open", () => {
         setStatus({ kind: "ready", message: "" });
-        // Seed: host is first player
-        setState(s => reducer({ ...s, hostDeviceId: deviceId }, {
-          type: "join", deviceId, name: displayName || "Host"
-        }));
+        const rounds = mode.songsPerPlayer;
+        const validRounds = rounds >= 1 && rounds <= 5 ? rounds : null;
+        setState(s => {
+          const seeded = {
+            ...s,
+            hostDeviceId: deviceId,
+            songsPerPlayer: validRounds,
+          };
+          return reducer(seeded, {
+            type: "join", deviceId, name: displayName || "Host"
+          });
+        });
       });
 
       peer.on("connection", (conn) => {
