@@ -377,24 +377,50 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 200;
-    overflow: hidden;
+    z-index: 240;
+    overflow: visible;
   }
   .reaction-float-emoji {
     position: fixed;
     width: 46px;
     height: 46px;
-    margin-left: -23px;
-    margin-top: -23px;
-    animation: reactionFloatUp 1.25s cubic-bezier(.22,.68,.36,1) forwards;
+    display: grid;
+    place-items: center;
+    transform: translate(-50%, -100%);
+    transform-origin: 50% 100%;
+    animation: reactionFloatSmooth 2.5s cubic-bezier(0.42, 0, 0.58, 1) forwards;
     filter: drop-shadow(0 2px 0 rgba(0,0,0,0.4)) drop-shadow(0 5px 14px rgba(0,0,0,0.35));
     will-change: transform, opacity;
   }
-  @keyframes reactionFloatUp {
-    0%   { transform: translateY(0) scale(0.45) rotate(-10deg); opacity: 0; }
-    10%  { opacity: 1; }
-    18%  { transform: translateY(-14px) scale(1.2) rotate(6deg); opacity: 1; }
-    100% { transform: translateY(-min(150px, 32vh)) scale(1.08) rotate(14deg); opacity: 0; }
+  .reaction-float-img {
+    width: 46px;
+    height: 46px;
+    display: block;
+  }
+  .reaction-float-glyph {
+    display: none;
+    font-size: 40px;
+    line-height: 1;
+  }
+  .reaction-float-emoji.is-fallback .reaction-float-img { display: none; }
+  .reaction-float-emoji.is-fallback .reaction-float-glyph { display: block; }
+  @keyframes reactionFloatSmooth {
+    0% {
+      transform: translate(-50%, -100%) translate(0, 0) scale(0.55);
+      opacity: 0;
+    }
+    12% {
+      transform: translate(-50%, -100%) translate(0, 0) scale(1.08);
+      opacity: 1;
+    }
+    55% {
+      transform: translate(-50%, -100%) translate(calc(var(--sway) * 0.5), calc(var(--lift) * -0.5)) scale(1.05);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-50%, -100%) translate(var(--sway), calc(var(--lift) * -1)) scale(0.98);
+      opacity: 0;
+    }
   }
   .reaction-bar {
     position: fixed;
@@ -403,12 +429,14 @@
     transform: translateX(-50%);
     width: 100%;
     max-width: 400px;
-    z-index: 150;
+    z-index: 250;
     padding: 6px 14px calc(10px + env(safe-area-inset-bottom, 0px));
-    pointer-events: none;
+    pointer-events: auto;
   }
   .reaction-bar-inner {
     pointer-events: auto;
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -447,9 +475,21 @@
     background: rgba(255,255,255,0.04);
     display: grid;
     place-items: center;
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    cursor: pointer;
     transition: transform 120ms ease, background 140ms ease, border-color 140ms ease;
     -webkit-tap-highlight-color: transparent;
   }
+  .reaction-btn-glyph {
+    font-size: 28px;
+    line-height: 1;
+    display: none;
+    pointer-events: none;
+  }
+  .reaction-btn.is-fallback .reaction-btn-img { display: none; }
+  .reaction-btn.is-fallback .reaction-btn-glyph { display: block; }
   .reaction-btn:active { transform: scale(0.88); }
   .reaction-btn--pos:hover {
     background: rgba(29,185,84,0.12);
@@ -473,6 +513,35 @@
     display: block;
     user-select: none;
     -webkit-user-drag: none;
+    pointer-events: none;
+  }
+
+  .player-count-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    outline: none;
+  }
+  .player-count-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--hp-gold);
+    border: 2px solid #08080C;
+    box-shadow: 0 0 0 2px rgba(245, 197, 24, 0.35);
+    cursor: pointer;
+  }
+  .player-count-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--hp-gold);
+    border: 2px solid #08080C;
+    box-shadow: 0 0 0 2px rgba(245, 197, 24, 0.35);
+    cursor: pointer;
   }
 </style>
 </head>
