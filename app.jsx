@@ -360,9 +360,10 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
         cover: track.cover,
         noPreview: !track.preview,
       });
+      if (onOpenChange) onOpenChange(false);
     } finally {
       setAdding(false);
-      inputRef.current && inputRef.current.focus();
+      if (inputRef.current && !disabled) inputRef.current.focus();
     }
   };
 
@@ -405,6 +406,12 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
   useEffectApp(() => {
     if (onOpenChange) onOpenChange(showDropdown);
   }, [showDropdown, onOpenChange]);
+
+  useEffectApp(() => {
+    return () => {
+      if (onOpenChange) onOpenChange(false);
+    };
+  }, [onOpenChange]);
 
   if (isHome) {
     return (
@@ -860,6 +867,34 @@ function RoundsPicker({ value, onChange }) {
       </div>
       <div className="mt-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
         {value} round{value === 1 ? "" : "s"} · each player adds {value} song{value === 1 ? "" : "s"}
+      </div>
+    </div>
+  );
+}
+
+function PlayerCountSlider({ value, onChange }) {
+  return (
+    <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
+      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">How many players?</div>
+      <div className="flex items-center gap-4">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35 w-4 text-right">3</span>
+        <input
+          type="range"
+          min={3}
+          max={10}
+          step={1}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="player-count-slider flex-1"
+          aria-label="Number of players"
+        />
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35 w-6">10</span>
+      </div>
+      <div className="mt-4 text-center">
+        <span className="font-display text-[44px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>{value}</span>
+        <span className="ml-2 font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+          player{value === 1 ? "" : "s"}
+        </span>
       </div>
     </div>
   );
@@ -1763,52 +1798,100 @@ function TimerRing({ progress, size = 168, stroke = 6, gold }) {
 const TWEMOJI_CDN = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72";
 
 const ROUND_REACTIONS = [
-  { id: "fire", code: "1f525", label: "Fire", tone: "pos" },
-  { id: "hearts", code: "1f60d", label: "Love", tone: "pos" },
-  { id: "star", code: "2b50", label: "Star", tone: "pos" },
-  { id: "trash", code: "1f5d1-fe0f", label: "Trash", tone: "neg" },
-  { id: "poop", code: "1f4a9", label: "Poop", tone: "neg" },
-  { id: "vomit", code: "1f92e", label: "Sick", tone: "neg" },
+  { id: "fire", code: "1f525", glyph: "🔥", label: "Fire", tone: "pos" },
+  { id: "hearts", code: "1f60d", glyph: "😍", label: "Love", tone: "pos" },
+  { id: "star", code: "2b50", glyph: "⭐", label: "Star", tone: "pos" },
+  { id: "trash", code: "1f5d1", glyph: "🗑️", label: "Trash", tone: "neg" },
+  { id: "poop", code: "1f4a9", glyph: "💩", label: "Poop", tone: "neg" },
+  { id: "vomit", code: "1f92e", glyph: "🤮", label: "Sick", tone: "neg" },
 ];
 
 function twemojiSrc(code) {
   return `${TWEMOJI_CDN}/${code}.png`;
 }
 
+function useAutoRevealWhenAllVoted(song, voterIds, guesses, dispatch, audioRef, setPlaying) {
+  const revealScheduledRef = useRefApp(false);
+  const voteKey = voterIds.map(id => (guesses[id] != null ? "1" : "0")).join("");
+
+  useEffectApp(() => {
+    revealScheduledRef.current = false;
+  }, [song && song.id]);
+
+  useEffectApp(() => {
+    if (!song || voterIds.length === 0) return;
+    const allIn = voterIds.every(id => guesses[id] != null);
+    if (!allIn || revealScheduledRef.current) return;
+    revealScheduledRef.current = true;
+    const a = audioRef.current;
+    if (a) a.pause();
+    if (setPlaying) setPlaying(false);
+    const t = window.setTimeout(() => dispatch({ type: "revealRound" }), 200);
+    return () => window.clearTimeout(t);
+  }, [song, voteKey, voterIds.length, dispatch, audioRef, setPlaying]);
+}
+
 function RoundReactionBar({ variant }) {
   const [floats, setFloats] = useStateApp([]);
   const nextIdRef = useRefApp(0);
 
-  const spawnFloat = (code, ev) => {
-    const rect = ev.currentTarget.getBoundingClientRect();
+  const spawnFloat = (reaction, ev) => {
+    const btn = ev.currentTarget;
+    const rect = btn.getBoundingClientRect();
     const id = ++nextIdRef.current;
+    const x = rect.left + rect.width / 2;
+    const y = rect.top;
+    const topMargin = 28;
+    const lift = Math.min(Math.max(y - topMargin, 72), window.innerHeight - topMargin - 48);
+    const sway = (Math.random() > 0.5 ? 1 : -1) * (5 + Math.random() * 8);
     setFloats(prev => [...prev, {
       id,
-      code,
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
+      code: reaction.code,
+      glyph: reaction.glyph,
+      x: Math.round(x),
+      y: Math.round(y),
+      lift: Math.round(lift),
+      sway: Math.round(sway),
     }]);
     window.setTimeout(() => {
       setFloats(prev => prev.filter(f => f.id !== id));
-    }, 1300);
+    }, 2800);
   };
 
   const positive = ROUND_REACTIONS.filter(r => r.tone === "pos");
   const negative = ROUND_REACTIONS.filter(r => r.tone === "neg");
 
-  return (
-    <>
-      <div className="reaction-float-layer" aria-hidden="true">
-        {floats.map(f => (
+  const floatLayer = (
+    <div className="reaction-float-layer" aria-hidden="true">
+      {floats.map(f => (
+        <span
+          key={f.id}
+          className="reaction-float-emoji"
+          style={{
+            left: `${f.x}px`,
+            top: `${f.y}px`,
+            "--lift": `${f.lift}px`,
+            "--sway": `${f.sway}px`,
+          }}
+        >
           <img
-            key={f.id}
             src={twemojiSrc(f.code)}
             alt=""
-            className="reaction-float-emoji"
-            style={{ left: f.x, top: f.y }}
+            className="reaction-float-img"
+            draggable={false}
+            onError={(e) => e.currentTarget.parentElement.classList.add("is-fallback")}
           />
-        ))}
-      </div>
+          <span className="reaction-float-glyph" aria-hidden="true">{f.glyph}</span>
+        </span>
+      ))}
+    </div>
+  );
+
+  return (
+    <>
+      {typeof ReactDOM !== "undefined" && ReactDOM.createPortal
+        ? ReactDOM.createPortal(floatLayer, document.body)
+        : floatLayer}
       <div className={cx("reaction-bar", variant === "cinematic" && "reaction-bar--cinematic")}>
         <div className="reaction-bar-inner">
           <div className="reaction-bar-group reaction-bar-group--pos">
@@ -1818,9 +1901,16 @@ function RoundReactionBar({ variant }) {
                 type="button"
                 className="reaction-btn reaction-btn--pos"
                 aria-label={r.label}
-                onClick={(ev) => spawnFloat(r.code, ev)}
+                onClick={(ev) => spawnFloat(r, ev)}
               >
-                <img src={twemojiSrc(r.code)} alt="" className="reaction-btn-img" draggable={false} />
+                <img
+                  src={twemojiSrc(r.code)}
+                  alt=""
+                  className="reaction-btn-img"
+                  draggable={false}
+                  onError={(e) => e.currentTarget.parentElement.classList.add("is-fallback")}
+                />
+                <span className="reaction-btn-glyph" aria-hidden="true">{r.glyph}</span>
               </button>
             ))}
           </div>
@@ -1832,9 +1922,16 @@ function RoundReactionBar({ variant }) {
                 type="button"
                 className="reaction-btn reaction-btn--neg"
                 aria-label={r.label}
-                onClick={(ev) => spawnFloat(r.code, ev)}
+                onClick={(ev) => spawnFloat(r, ev)}
               >
-                <img src={twemojiSrc(r.code)} alt="" className="reaction-btn-img" draggable={false} />
+                <img
+                  src={twemojiSrc(r.code)}
+                  alt=""
+                  className="reaction-btn-img"
+                  draggable={false}
+                  onError={(e) => e.currentTarget.parentElement.classList.add("is-fallback")}
+                />
+                <span className="reaction-btn-glyph" aria-hidden="true">{r.glyph}</span>
               </button>
             ))}
           </div>
@@ -1856,7 +1953,6 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   const voters = state.players.filter(p => p.online !== false);
   const lockedCount = voters.filter(p => state.guesses[p.deviceId] != null).length;
   const myGuess = state.guesses[deviceId];
-  const isSongOwner = song && song.ownerDeviceId === deviceId;
 
   useEffectApp(() => {
     setProgress(0);
@@ -1899,16 +1995,8 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
     };
   }, []);
 
-  useEffectApp(() => {
-    if (!isHost || !song) return;
-    const ids = voters.map(p => p.deviceId);
-    if (ids.length === 0) return;
-    const allIn = ids.every(id => state.guesses[id] != null);
-    if (allIn) {
-      const t = setTimeout(() => dispatch({ type: "revealRound" }), 350);
-      return () => clearTimeout(t);
-    }
-  }, [isHost, song, state.players, state.guesses, dispatch]);
+  const voterIds = voters.map(p => p.deviceId);
+  useAutoRevealWhenAllVoted(song, voterIds, state.guesses, dispatch, audioRef, setPlaying);
 
   const togglePlay = () => {
     const a = audioRef.current;
@@ -1923,8 +2011,6 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
 
   const setGuess = (targetDeviceId) => {
     if (myGuess) return;
-    const ownerMayPickSelf = isSongOwner && targetDeviceId === deviceId;
-    if (targetDeviceId === deviceId && !ownerMayPickSelf) return;
     dispatch({
       type: "submitGuess",
       targetDeviceId,
@@ -2040,48 +2126,37 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
                   <Avatar name={guessTarget?.name} size={32} />
                   <div className="font-display text-[22px] tracking-[0.04em]">{guessTarget?.name}</div>
                 </div>
-                {isSongOwner && myGuess === deviceId && (
-                  <HpSectionDesc>Your song — you picked yourself.</HpSectionDesc>
+                {myGuess === deviceId && (
+                  <HpSectionDesc>You voted for yourself.</HpSectionDesc>
                 )}
                 <HpSectionDesc>Waiting for {voters.length - lockedCount} more…</HpSectionDesc>
               </div>
             ) : (
               <>
-                {isSongOwner && (
-                  <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                    Your song — you can still vote · pick yourself if it was you
-                  </div>
-                )}
-                <div className="px-2 pt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Who submitted this track?
+                <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                  Who submitted this track? · you can vote for yourself
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {state.players.map(p => {
                     const isSelf = p.deviceId === deviceId;
-                    const ownerMayPickSelf = isSelf && isSongOwner;
-                    const disabled = isSelf && !ownerMayPickSelf;
                     return (
                       <button
                         key={p.deviceId}
-                        disabled={disabled}
                         onClick={() => setGuess(p.deviceId)}
                         className={cx(
                           "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
-                          disabled
-                            ? "bg-black/25 border-white/8 text-white/30 cursor-not-allowed"
+                          isSelf
+                            ? "bg-[var(--hp-magenta)]/15 border-[var(--hp-magenta)]/40 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
                             : "bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
                         )}
                       >
-                        <Avatar name={p.name} size={26} dim={disabled} />
+                        <Avatar name={p.name} size={26} />
                         <div className="min-w-0">
                           <div className="truncate">{p.name}</div>
-                          {ownerMayPickSelf && (
+                          {isSelf && (
                             <div className="font-mono text-[9px] uppercase text-[var(--hp-gold)]">that's you</div>
                           )}
-                          {disabled && !ownerMayPickSelf && (
-                            <div className="font-mono text-[9px] uppercase text-white/30">that's you</div>
-                          )}
-                          {p.online === false && !disabled && (
+                          {p.online === false && !isSelf && (
                             <div className="font-mono text-[9px] uppercase text-white/30">offline</div>
                           )}
                         </div>
@@ -2482,7 +2557,9 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
 function LocalLobbyScreen({ state, dispatch, onLeave }) {
   const lastPlayer = state.players[state.players.length - 1] || null;
   const [step, setStep] = useStateApp(() => {
+    if (state.players.length > 0 && state.playerCount && state.players.length >= state.playerCount) return "pool";
     if (state.players.length > 0) return "songs";
+    if (state.songsPerPlayer && state.playerCount) return "name";
     if (state.songsPerPlayer) return "name";
     return "rounds";
   });
@@ -2491,13 +2568,16 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
   const [err, setErr] = useStateApp("");
   const [songSearchOpen, setSongSearchOpen] = useStateApp(false);
   const [roundPick, setRoundPick] = useStateApp(Math.min(state.songsPerPlayer || 3, 5));
+  const [playerPick, setPlayerPick] = useStateApp(state.playerCount || 3);
 
   const songsPerPlayer = state.songsPerPlayer || 1;
+  const playerTarget = state.playerCount || 3;
   const currentPlayer = state.players.find(p => p.deviceId === currentId) || null;
-  const poolTarget = state.players.length * songsPerPlayer;
-  const playersReady = state.players.length >= 3 && state.players.every(p =>
+  const poolTarget = playerTarget * songsPerPlayer;
+  const playersReady = state.players.length >= playerTarget && state.players.every(p =>
     state.songs.filter(s => s.ownerDeviceId === p.deviceId).length >= songsPerPlayer
   );
+  const rosterFull = state.players.length >= playerTarget;
   const canStart = state.songsPerPlayer && playersReady;
   const currentSongs = currentPlayer ? state.songs.filter(s => s.ownerDeviceId === currentPlayer.deviceId) : [];
   const currentSongSlotsLeft = Math.max(0, songsPerPlayer - currentSongs.length);
@@ -2510,10 +2590,14 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
     if (state.players.some(p => p.name.toLowerCase() === n.toLowerCase())) {
       return setErr("Someone in the room already has that name.");
     }
+    if (rosterFull) {
+      return setErr(`All ${playerTarget} players are already in.`);
+    }
     const newId = newDeviceId();
     dispatch({ type: "join", deviceId: newId, name: n });
     setCurrentId(newId);
     setName("");
+    setSongSearchOpen(false);
     setStep("songs");
   };
 
@@ -2539,10 +2623,22 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
       cover: song.cover,
       noPreview: song.noPreview,
     });
+    setSongSearchOpen(false);
   };
+
+  useEffectApp(() => {
+    if (step === "songs" && atSongLimit) setSongSearchOpen(false);
+  }, [step, atSongLimit]);
+
+  useEffectApp(() => {
+    if (step === "songs" && !currentPlayer) {
+      setStep(state.players.length === 0 ? "rounds" : "name");
+    }
+  }, [step, currentPlayer, state.players.length]);
 
   const confirmRounds = () => {
     dispatch({ type: "setSongsPerPlayer", count: roundPick });
+    dispatch({ type: "setPlayerCount", count: playerPick });
     setStep("name");
     setErr("");
   };
@@ -2553,12 +2649,19 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
       return;
     }
     setErr("");
+    setSongSearchOpen(false);
     setStep("pass");
   };
   const startNextPlayer = () => {
     setCurrentId(null);
+    setName("");
+    setErr("");
+    setSongSearchOpen(false);
+    if (state.players.length >= playerTarget) {
+      setStep("pool");
+      return;
+    }
     setStep("name");
-    setName(""); setErr("");
   };
 
   const start = () => {
@@ -2571,8 +2674,8 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
       <HomeHeader
         subtitle={
           state.songsPerPlayer
-            ? `Pass-around · ${state.players.length} player${state.players.length === 1 ? "" : "s"} · ${state.songsPerPlayer} round${state.songsPerPlayer === 1 ? "" : "s"} each`
-            : `Pass-around · ${state.players.length} player${state.players.length === 1 ? "" : "s"}`
+            ? `Pass-around · ${state.players.length}/${playerTarget} players · ${state.songsPerPlayer} round${state.songsPerPlayer === 1 ? "" : "s"} each`
+            : `Pass-around · set up your game`
         }
         onBack={onLeave}
         backLabel="Leave"
@@ -2580,23 +2683,25 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
 
       <div className="px-6 mt-4 flex-1">
         <HpSectionTitle>
-          {step === "rounds" && <>HOW MANY <span style={{ color: "var(--hp-gold)" }}>ROUNDS?</span></>}
-          {step === "name" && <>NEXT <span style={{ color: "var(--hp-gold)" }}>PLAYER</span></>}
+          {step === "rounds" && <>GAME <span style={{ color: "var(--hp-gold)" }}>SETUP</span></>}
+          {step === "name" && <>PLAYER <span style={{ color: "var(--hp-gold)" }}>{state.players.length + 1}</span> OF <span style={{ color: "var(--hp-magenta)" }}>{playerTarget}</span></>}
+          {step === "pool" && <>ALL <span style={{ color: "var(--hp-gold)" }}>PLAYERS</span> IN</>}
           {step === "songs" && currentPlayer && (
             <>HEY, <span style={{ color: "var(--hp-magenta)" }}>{currentPlayer.name.toUpperCase()}</span></>
           )}
           {step === "pass" && <>PASS THE <span style={{ color: "var(--hp-gold)" }}>PHONE</span></>}
         </HpSectionTitle>
         <HpSectionDesc>
-          {step === "rounds" && "Each round = one song per player. Pick how many songs everyone will add."}
-          {step === "name" && "Type your name to start adding songs."}
+          {step === "rounds" && "Choose how many rounds (songs per player) and how many people are playing."}
+          {step === "name" && "Type your name, then add your songs when it's your turn."}
+          {step === "pool" && "Everyone's registered. Finish adding songs, then start the game."}
           {step === "songs" && (
             <>Add <span style={{ color: "var(--hp-gold)" }}>{songsPerPlayer}</span> song{songsPerPlayer === 1 ? "" : "s"} — then pass the phone.</>
           )}
           {step === "pass" && "No peeking — hand the device over, then they tap to continue."}
         </HpSectionDesc>
 
-        {state.players.length > 0 && step !== "songs" && (
+        {state.players.length > 0 && step !== "songs" && step !== "rounds" && (
           <div className="mt-5">
             <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">Added so far</div>
             <div className="flex flex-wrap gap-2">
@@ -2617,7 +2722,10 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
         {step === "rounds" && (
           <div className="mt-6 space-y-4">
             <RoundsPicker value={roundPick} onChange={setRoundPick} />
-            <HpGoldBtn onClick={confirmRounds}>LOCK IN {roundPick} ROUND{roundPick === 1 ? "" : "S"} →</HpGoldBtn>
+            <PlayerCountSlider value={playerPick} onChange={setPlayerPick} />
+            <HpGoldBtn onClick={confirmRounds}>
+              LOCK IN · {playerPick} PLAYERS · {roundPick} ROUND{roundPick === 1 ? "" : "S"} →
+            </HpGoldBtn>
           </div>
         )}
 
@@ -2682,7 +2790,7 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
               </div>
             )}
 
-            {!songSearchOpen && (
+            {(atSongLimit || !songSearchOpen) && (
               <div className="mt-4">
                 {err && !atSongLimit && (
                   <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{err}</div>
@@ -2699,15 +2807,31 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
           <div className="mt-6">
             <HpPanel center className="py-6">
               <div className="font-display text-[56px] leading-none" style={{ color: "var(--hp-gold)" }}>♪</div>
-              <HpSectionDesc>Hand the phone to the next player.</HpSectionDesc>
+              {rosterFull ? (
+                <HpSectionDesc>All {playerTarget} players are in. Check the song pool below and start when ready.</HpSectionDesc>
+              ) : (
+                <HpSectionDesc>Hand the phone to the next player ({state.players.length + 1} of {playerTarget}).</HpSectionDesc>
+              )}
               <div className="mt-4">
-                <HpGoldBtn onClick={startNextPlayer}>I'M THE NEXT PLAYER →</HpGoldBtn>
+                <HpGoldBtn onClick={startNextPlayer}>
+                  {rosterFull ? "GOT IT →" : "I'M THE NEXT PLAYER →"}
+                </HpGoldBtn>
               </div>
             </HpPanel>
           </div>
         )}
 
-        {!(step === "songs" && songSearchOpen) && (
+        {step === "pool" && (
+          <div className="mt-6">
+            <HpPanel center className="py-5">
+              <HpSectionDesc>
+                {state.players.length} players · {state.songs.length}/{poolTarget} songs in the pool
+              </HpSectionDesc>
+            </HpPanel>
+          </div>
+        )}
+
+        {!(step === "songs" && songSearchOpen && !atSongLimit) && (
           <>
             <div className="mt-6">
               <PoolCounter count={state.songs.length} target={poolTarget} variant="home" />
@@ -2717,8 +2841,8 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
               <HpPrimaryBtn disabled={!canStart} onClick={start}>
                 {canStart
                   ? `START ${state.songs.length} ROUND${state.songs.length === 1 ? "" : "S"} →`
-                  : state.players.length < 3
-                    ? `NEED ${3 - state.players.length} MORE PLAYER${3 - state.players.length === 2 ? "" : "S"} (${state.players.length}/3)`
+                  : state.players.length < playerTarget
+                    ? `NEED ${playerTarget - state.players.length} MORE PLAYER${playerTarget - state.players.length === 1 ? "" : "S"} (${state.players.length}/${playerTarget})`
                     : `NEED ${poolTarget - state.songs.length} MORE SONG${poolTarget - state.songs.length === 1 ? "" : "S"} (${state.songs.length}/${poolTarget})`}
               </HpPrimaryBtn>
             </div>
@@ -2782,15 +2906,7 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
   const currentVoterId = voteOrder.find(id => state.guesses[id] == null) || null;
   const votersLocked = voteOrder.filter(id => state.guesses[id] != null).length;
 
-  // Auto-reveal when every player has voted (one at a time, in order)
-  useEffectApp(() => {
-    if (!song || voteOrder.length === 0) return;
-    const allIn = voteOrder.every(id => state.guesses[id] != null);
-    if (allIn) {
-      const t = setTimeout(() => dispatch({ type: "revealRound" }), 350);
-      return () => clearTimeout(t);
-    }
-  }, [song, voteOrder, state.guesses, dispatch]);
+  useAutoRevealWhenAllVoted(song, voteOrder, state.guesses, dispatch, audioRef, setPlaying);
 
   if (!song) return null;
 
@@ -2808,8 +2924,6 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
 
   const pickTarget = (targetId) => {
     if (!currentVoterId || activeGuess) return;
-    const ownerPicksSelf = currentVoterId === song.ownerDeviceId && targetId === currentVoterId;
-    if (targetId === currentVoterId && !ownerPicksSelf) return;
     dispatch({
       type: "submitGuess",
       deviceId: currentVoterId,
@@ -2935,38 +3049,29 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
               <>
                 <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
                   Pass the phone to <span style={{ color: "var(--hp-magenta)" }}>{activePlayer.name}</span>
-                  {activePlayer.deviceId === song.ownerDeviceId && (
-                    <span className="text-white/45"> · your song — pick yourself</span>
-                  )}
                 </div>
                 <div className="px-2 pt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Who submitted this track?
+                  Who submitted this track? · you can vote for yourself
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {state.players.map(p => {
                     const isSelf = p.deviceId === currentVoterId;
-                    const ownerMayPickSelf = isSelf && currentVoterId === song.ownerDeviceId;
-                    const disabled = isSelf && !ownerMayPickSelf;
                     return (
                       <button
                         key={p.deviceId}
-                        disabled={disabled}
                         onClick={() => pickTarget(p.deviceId)}
                         className={cx(
                           "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
-                          disabled
-                            ? "bg-black/25 border-white/8 text-white/30 cursor-not-allowed"
+                          isSelf
+                            ? "bg-[var(--hp-magenta)]/15 border-[var(--hp-magenta)]/40 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
                             : "bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
                         )}
                       >
-                        <Avatar name={p.name} size={26} dim={disabled} />
+                        <Avatar name={p.name} size={26} />
                         <div className="min-w-0">
                           <div className="truncate">{p.name}</div>
-                          {ownerMayPickSelf && (
+                          {isSelf && (
                             <div className="font-mono text-[9px] uppercase text-[var(--hp-gold)]">that's you</div>
-                          )}
-                          {disabled && !ownerMayPickSelf && (
-                            <div className="font-mono text-[9px] uppercase text-white/30">that's you</div>
                           )}
                         </div>
                       </button>
