@@ -839,6 +839,32 @@ function HpSectionDesc({ children }) {
   );
 }
 
+function RoundsPicker({ value, onChange }) {
+  return (
+    <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
+      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Songs per player</div>
+      <div className="flex flex-wrap gap-2 justify-center">
+        {[1, 2, 3, 4, 5].map(n => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            className={cx(
+              "min-w-[52px] h-[52px] rounded-xl font-display text-[26px] tabular border transition",
+              value === n
+                ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
+                : "bg-[#22222c] text-white/80 border-white/15 hover:border-[var(--hp-gold)]/40"
+            )}
+          >{n}</button>
+        ))}
+      </div>
+      <div className="mt-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+        {value} round{value === 1 ? "" : "s"} · each player adds {value} song{value === 1 ? "" : "s"}
+      </div>
+    </div>
+  );
+}
+
 // ---------- HomeScreen — cinematic landing ----------
 function getWheelRotationDeg(el) {
   const tr = window.getComputedStyle(el).transform;
@@ -860,7 +886,7 @@ function setWheelTransform(el, angleDeg) {
   el.style.transform = `rotate3d(0, 0, 1, ${angleDeg}deg)`;
 }
 
-function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin, onSpotifyContinue, onPlayLocal }) {
+function HomeScreen({ onMultiDevice, onSingleDevice }) {
   const wheelRef = useRefApp(null);
   const wheelMotionRef = useRefApp({
     angle: 0,
@@ -1016,44 +1042,25 @@ function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin
 
       {/* CTA buttons */}
       <div className="relative z-10 px-6 mt-6 max-w-[420px] mx-auto">
-        {spotifyError && (
-          <div className="btn-in mb-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
-            Spotify: {spotifyError}
-          </div>
-        )}
-
-        {/* Primary CTA */}
-        {spotifyToken ? (
-          <button
-            onClick={onSpotifyContinue}
-            className="btn-in s1 btn-spotify w-full rounded-xl px-5 py-4 font-display tracking-[0.14em] text-[22px] flex items-center justify-center gap-3"
-          >
-            <MusicDiscGlyph size={22} />
-            CONTINUE · CONNECTED ✓
-          </button>
-        ) : (
-          <button
-            disabled={spotifyLoading}
-            onClick={onSpotifyLogin}
-            className="btn-in s1 btn-spotify w-full rounded-xl px-5 py-4 font-display tracking-[0.14em] text-[22px] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-wait"
-          >
-            <MusicDiscGlyph size={22} />
-            {spotifyLoading ? "CONNECTING…" : "LOGIN WITH SPOTIFY"}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onMultiDevice}
+          className="btn-in s1 btn-spotify w-full rounded-xl px-5 py-4 font-display tracking-[0.14em] text-[22px]"
+        >
+          MULTI-DEVICE
+        </button>
         <div className="btn-in s1 mt-1.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-          Multi-device · Full features
+          Everyone on their own phone · host or join a room
         </div>
 
-        {/* Secondary CTA */}
         <HpGoldBtn
-          onClick={onPlayLocal}
+          onClick={onSingleDevice}
           className="btn-in s2 mt-5 py-4 text-[22px]"
         >
-          PLAY NOW · NO LOGIN
+          SINGLE-DEVICE
         </HpGoldBtn>
         <div className="btn-in s2 mt-1.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-          Single device · Quick play
+          One phone passed around the group
         </div>
       </div>
 
@@ -1082,10 +1089,11 @@ function HomeScreen({ spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin
 }
 
 // ---------- StartScreen — choose host/join/local ----------
-function StartScreen({ onChoose, spotifyToken, spotifyLoading, spotifyError, onSpotifyLogin }) {
-  const [view, setView] = useStateApp("home"); // home | host | join
+function StartScreen({ onChoose }) {
+  const [view, setView] = useStateApp("home"); // home | multi | host | join
   const [name, setName] = useStateApp("");
   const [code, setCode] = useStateApp("");
+  const [roundPick, setRoundPick] = useStateApp(3);
 
   // pre-populate code from ?room= if present
   useEffectApp(() => {
@@ -1101,98 +1109,110 @@ function StartScreen({ onChoose, spotifyToken, spotifyLoading, spotifyError, onS
 
   const startHost = () => {
     if (!name.trim()) return;
-    onChoose({ kind: "host", code: randomCode(), name: name.trim(), spotifyToken: spotifyToken || null });
+    onChoose({
+      kind: "host",
+      code: randomCode(),
+      name: name.trim(),
+      songsPerPlayer: roundPick,
+    });
   };
   const startJoin = () => {
     if (!name.trim() || code.trim().length < 4) return;
-    onChoose({ kind: "client", code: code.trim().toUpperCase(), name: name.trim(), spotifyToken: spotifyToken || null });
+    onChoose({
+      kind: "client",
+      code: code.trim().toUpperCase(),
+      name: name.trim(),
+    });
   };
 
-  // ---- Home view = new cinematic landing ----
+  // ---- Home view = cinematic landing ----
   if (view === "home") {
     return (
       <HomeScreen
-        spotifyToken={spotifyToken}
-        spotifyLoading={spotifyLoading}
-        spotifyError={spotifyError}
-        onSpotifyLogin={onSpotifyLogin}
-        onSpotifyContinue={() => setView("host")}
-        onPlayLocal={() => onChoose({ kind: "local" })}
+        onMultiDevice={() => setView("multi")}
+        onSingleDevice={() => onChoose({ kind: "local" })}
       />
     );
   }
 
-  // ---- Host / Join views (existing) ----
-  return (
-    <div className="fade-enter relative min-h-[100dvh]">
-      <ArtistPhotoBackdrop />
-      <div className="relative">
-        <TopBar
-          subtitle={view === "host" ? "Hosting" : "Joining"}
-          onBack={() => setView("home")}
-          backLabel="Back to start"
-        />
-
-        <div className="px-6 mt-2 relative z-10">
-          <h1 className="text-[32px] leading-[1.02] font-semibold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-            {view === "host" ? <>Open a <span className="text-[#1DB954]">room</span>.</> : <>Got the <span className="text-[#1DB954]">code</span>?</>}
-          </h1>
-          <p className="mt-2 text-sm text-white/65 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
-            {view === "host"
-              ? "Create a room, share the code, drop songs together."
-              : "Punch in the room code your host sent you."}
-          </p>
-          {spotifyToken && (
-            <div className="mt-3 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#1DB954]/15 border border-[#1DB954]/40 text-[#1DB954] text-[11px] tracking-[0.16em] uppercase">
-              <MusicDiscGlyph size={12} /> Spotify connected
-            </div>
-          )}
+  // ---- Multi-device: host or join ----
+  if (view === "multi") {
+    return (
+      <HomeStageShell>
+        <HomeHeader subtitle="Multi-device" onBack={() => setView("home")} backLabel="Back" />
+        <div className="px-6 mt-4 flex-1">
+          <HpSectionTitle>
+            YOUR PHONE, <span style={{ color: "var(--hp-gold)" }}>YOUR TURN</span>
+          </HpSectionTitle>
+          <HpSectionDesc>
+            Host opens a room and shares the code. Everyone else joins from their own device.
+          </HpSectionDesc>
+          <div className="mt-8 space-y-3">
+            <HpPrimaryBtn onClick={() => setView("host")}>HOST A ROOM →</HpPrimaryBtn>
+            <HpGoldBtn onClick={() => setView("join")}>JOIN WITH CODE →</HpGoldBtn>
+          </div>
         </div>
+      </HomeStageShell>
+    );
+  }
 
-        {view === "host" && (
-          <div className="mt-6 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-4 space-y-3 grain relative z-10">
-            <Field label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
-            <div className="text-[11px] text-white/40 leading-snug">
-              You'll get a room code after this — share it (or the link) with friends so they can join from their phones.
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => setView("home")} className="px-4 py-3 rounded-xl border border-[#282828] bg-[#181818] hover:bg-[#202020] text-sm text-white/80">Back</button>
-              <button
-                disabled={!name.trim()}
-                onClick={startHost}
-                className={cx(
-                  "flex-1 rounded-xl py-3 text-sm font-semibold transition border",
-                  name.trim()
-                    ? "bg-[#1DB954] hover:bg-[#1ed760] text-black border-transparent"
-                    : "bg-[#282828] text-[#535353] border-transparent cursor-not-allowed"
-                )}
-              >Open room →</button>
-            </div>
+  if (view === "host") {
+    return (
+      <HomeStageShell>
+        <HomeHeader subtitle="Hosting" onBack={() => setView("multi")} backLabel="Back" />
+        <div className="px-6 mt-4 flex-1 pb-8">
+          <HpSectionTitle>
+            OPEN A <span style={{ color: "var(--hp-gold)" }}>ROOM</span>
+          </HpSectionTitle>
+          <HpSectionDesc>
+            Pick rounds, enter your name, then share the room code with friends on their phones.
+          </HpSectionDesc>
+          <div className="mt-6 space-y-4">
+            <RoundsPicker value={roundPick} onChange={setRoundPick} />
+            <HpPanel>
+              <HpField label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
+            </HpPanel>
+            <HpPrimaryBtn disabled={!name.trim()} onClick={startHost}>OPEN ROOM →</HpPrimaryBtn>
           </div>
-        )}
+        </div>
+      </HomeStageShell>
+    );
+  }
 
-        {view === "join" && (
-          <div className="mt-6 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-4 space-y-3 grain relative z-10">
-            <Field label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
-            <Field label="Room code" value={code} onChange={(v) => setCode(v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5))} placeholder="ABCDE" mono maxLength={5} />
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => setView("home")} className="px-4 py-3 rounded-xl border border-[#282828] bg-[#181818] hover:bg-[#202020] text-sm text-white/80">Back</button>
-              <button
-                disabled={!name.trim() || code.length < 4}
-                onClick={startJoin}
-                className={cx(
-                  "flex-1 rounded-xl py-3 text-sm font-semibold transition border",
-                  name.trim() && code.length >= 4
-                    ? "bg-[#1DB954] hover:bg-[#1ed760] text-black border-transparent"
-                    : "bg-[#282828] text-[#535353] border-transparent cursor-not-allowed"
-                )}
-              >Join party →</button>
-            </div>
+  if (view === "join") {
+    return (
+      <HomeStageShell>
+        <HomeHeader subtitle="Joining" onBack={() => setView("multi")} backLabel="Back" />
+        <div className="px-6 mt-4 flex-1 pb-8">
+          <HpSectionTitle>
+            GOT THE <span style={{ color: "var(--hp-gold)" }}>CODE?</span>
+          </HpSectionTitle>
+          <HpSectionDesc>
+            Enter the room code from your host and your name to join the party.
+          </HpSectionDesc>
+          <div className="mt-6 space-y-4">
+            <HpPanel className="space-y-3">
+              <HpField
+                label="Room code"
+                value={code}
+                onChange={(v) => setCode(v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5))}
+                placeholder="ABCDE"
+                mono
+                maxLength={5}
+                autoFocus
+              />
+              <HpField label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" maxLength={20} />
+            </HpPanel>
+            <HpGoldBtn disabled={!name.trim() || code.length < 4} onClick={startJoin}>
+              JOIN PARTY →
+            </HpGoldBtn>
           </div>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+      </HomeStageShell>
+    );
+  }
+
+  return null;
 }
 
 function ArrowRight({ muted }) {
@@ -1231,7 +1251,8 @@ function ConnectionGate({ status, mode, onReset }) {
 }
 
 // ---------- RoomChip ----------
-function RoomChip({ code, mode }) {
+function RoomChip({ code, mode, variant }) {
+  const hp = variant === "home";
   const [copied, setCopied] = useStateApp(false);
   const copy = async () => {
     try {
@@ -1245,12 +1266,23 @@ function RoomChip({ code, mode }) {
     }
   };
   return (
-    <button onClick={copy} className="text-right group">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Room {mode.kind === "client" ? "· joined" : ""}</div>
-      <div className="font-mono text-sm font-semibold tracking-[0.2em] text-[#1DB954] group-hover:text-[#1ed760] transition">
+    <button type="button" onClick={copy} className="text-right group shrink-0">
+      <div className={cx(
+        "uppercase tracking-[0.18em]",
+        hp ? "font-mono text-[10px] text-white/40" : "text-[10px] text-white/40"
+      )}>Room {mode.kind === "client" ? "· joined" : ""}</div>
+      <div
+        className={cx(
+          "font-mono font-semibold tracking-[0.2em] transition",
+          hp ? "text-[18px] group-hover:opacity-90" : "text-sm group-hover:text-[#1ed760]"
+        )}
+        style={hp ? { color: "var(--hp-gold)" } : { color: "#1DB954" }}
+      >
         {code}
       </div>
-      <div className="text-[10px] text-white/35 mt-0.5">{copied ? "link copied!" : "tap to copy link"}</div>
+      <div className={cx("mt-0.5", hp ? "font-mono text-[10px] uppercase tracking-[0.14em] text-white/35" : "text-[10px] text-white/35")}>
+        {copied ? "link copied!" : "tap to copy link"}
+      </div>
     </button>
   );
 }
@@ -1423,14 +1455,32 @@ function SpotifyImporter({ token, dispatch, deviceId, onDisconnect, existingTitl
   );
 }
 
-// ---------- LobbyScreen ----------
-function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave, spotifyToken, onSpotifyDisconnect }) {
+// ---------- LobbyScreen — multi-device room (cinematic) ----------
+function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave }) {
   const [err, setErr] = useStateApp("");
+  const [songSearchOpen, setSongSearchOpen] = useStateApp(false);
 
   const me = state.players.find(p => p.deviceId === deviceId);
   const mySongs = state.songs.filter(s => s.ownerDeviceId === deviceId);
+  const songsPerPlayer = state.songsPerPlayer || 1;
+  const poolTarget = state.songsPerPlayer ? state.players.length * songsPerPlayer : null;
+  const atSongLimit = state.songsPerPlayer && mySongs.length >= songsPerPlayer;
+
+  const playersReady = state.songsPerPlayer
+    ? state.players.length >= 3 && state.players.every(p =>
+        state.songs.filter(s => s.ownerDeviceId === p.deviceId).length >= songsPerPlayer
+      )
+    : false;
+  const owners = new Set(state.songs.map(s => s.ownerDeviceId));
+  const canStart = state.songsPerPlayer
+    ? playersReady
+    : state.songs.length >= 3 && owners.size >= 2;
 
   const addSongFromSearch = async (song) => {
+    if (atSongLimit) {
+      setErr(`You already added ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"}.`);
+      return;
+    }
     const key = (song.title + "|" + song.artist).toLowerCase();
     if (mySongs.some(s => (s.title + "|" + s.artist).toLowerCase() === key)) {
       setErr("You already added that song.");
@@ -1448,47 +1498,61 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave, s
     });
   };
 
-  const owners = new Set(state.songs.map(s => s.ownerDeviceId));
-  const canStart = state.songs.length >= 3 && owners.size >= 2;
-
   return (
-    <div className="fade-enter relative">
-      <ArtistPhotoBackdrop />
-      <div className="relative">
-        <TopBar subtitle="Lobby" right={<RoomChip code={code} mode={mode} />} onBack={onLeave} backLabel="Leave room" />
+    <HomeStageShell>
+      <HomeHeader
+        subtitle={
+          state.songsPerPlayer
+            ? `Lobby · ${state.songsPerPlayer} round${state.songsPerPlayer === 1 ? "" : "s"} each`
+            : "Lobby"
+        }
+        onBack={onLeave}
+        backLabel="Leave room"
+        right={<RoomChip code={code} mode={mode} variant="home" />}
+      />
 
-        <div className="px-6 relative z-10">
-          <h1 className="text-[26px] leading-[1.05] font-semibold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-            {isHost ? "You're hosting." : "You're in."}
-          </h1>
-          <p className="mt-1.5 text-sm text-white/65 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
-            {isHost
-              ? "Share the room code (tap it to copy a link). When everyone's added a song, hit start."
-              : "Drop your song(s) below. The host will start the round when you're all ready."}
-          </p>
-        </div>
+      <div className="px-6 mt-2 flex-1 pb-6">
+        <HpSectionTitle>
+          {isHost ? (
+            <>YOU'RE <span style={{ color: "var(--hp-gold)" }}>HOSTING</span></>
+          ) : (
+            <>YOU'RE <span style={{ color: "var(--hp-magenta)" }}>IN</span></>
+          )}
+        </HpSectionTitle>
+        <HpSectionDesc>
+          {isHost
+            ? "Share the room code. Everyone adds their songs, then start when the pool is full."
+            : state.songsPerPlayer
+              ? `Add ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"} — the host starts when everyone's ready.`
+              : "Add your songs below. The host starts when everyone's ready."}
+        </HpSectionDesc>
 
-        {/* Players in room */}
-        <div className="mt-5 px-6 relative z-10">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-2">
+        <div className="mt-5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">
             In the room · {state.players.length}
           </div>
-          <div className="flex gap-2 overflow-x-auto pt-3 pb-1 -mx-1 px-1" style={{ overflowY: "visible" }}>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {state.players.map(p => {
               const isMe = p.deviceId === deviceId;
               const isHostP = p.deviceId === state.hostDeviceId;
               const songCount = state.songs.filter(s => s.ownerDeviceId === p.deviceId).length;
               return (
-                <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[60px]">
-                  <div className="relative" style={{ overflow: "visible" }}>
+                <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[64px] shrink-0">
+                  <div className="relative">
                     <Avatar name={p.name} size={42} dim={p.online === false} />
                     {isHostP && (
-                      <div className="absolute -top-1 -right-1 text-[10px] bg-[#1DB954] text-black rounded-full w-4 h-4 grid place-items-center font-bold border border-[var(--bg)] z-10">★</div>
+                      <div
+                        className="absolute -top-1 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
+                        style={{ background: "var(--hp-gold)", color: "#08080C" }}
+                      >★</div>
                     )}
                   </div>
-                  <div className={cx("text-[11px] truncate max-w-[64px]", isMe ? "text-[#1DB954] font-semibold" : "text-white/75")}>{p.name}</div>
-                  <div className="text-[10px] font-mono text-white/35 tabular">
-                    {songCount} {songCount === 1 ? "song" : "songs"}
+                  <div
+                    className={cx("text-[11px] truncate max-w-[64px] font-medium", isMe ? "" : "text-white/75")}
+                    style={isMe ? { color: "var(--hp-gold)" } : undefined}
+                  >{p.name}</div>
+                  <div className="text-[10px] font-mono text-[var(--hp-gold)] tabular">
+                    {state.songsPerPlayer ? `${songCount}/${songsPerPlayer}♪` : `${songCount}♪`}
                   </div>
                 </div>
               );
@@ -1496,90 +1560,80 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave, s
           </div>
         </div>
 
-        {/* Your songs (just yours) */}
-        {mySongs.length > 0 && (
-          <div className="mt-4 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-3 relative z-10">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40 mb-2 px-1">Your picks</div>
-            <div className="space-y-1.5">
-              {mySongs.map(s => (
-                <div key={s.id} className="flex items-center gap-2 rounded-xl bg-[#282828] px-3 py-2">
-                  {s.cover ? (
-                    <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover" />
-                  ) : (
-                    <div className="w-9 h-9 rounded-md bg-[#282828]"></div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm truncate font-medium">{s.title}</div>
-                    <div className="text-[11px] text-white/50 truncate">
-                      {s.artist}{s.noPreview && <span className="ml-1.5 text-[#B3B3B3]">· no preview</span>}
-                    </div>
+        {mySongs.length > 0 && !songSearchOpen && (
+          <div className="mt-4 rounded-2xl border border-white/14 bg-[#16161e] p-3 space-y-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40 mb-2 px-1">Your picks</div>
+            {mySongs.map(s => (
+              <div key={s.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#22222c] px-3 py-2">
+                {s.cover ? (
+                  <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover border border-white/10" />
+                ) : (
+                  <div className="w-9 h-9 rounded-md bg-black/50 border border-white/10"></div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm truncate font-medium">{s.title}</div>
+                  <div className="text-[11px] text-white/50 truncate">
+                    {s.artist}{s.noPreview && <span className="ml-1.5 text-white/35">· no preview</span>}
                   </div>
-                  <button
-                    onClick={() => dispatch({ type: "removeSong", songId: s.id })}
-                    className="text-[11px] text-white/40 hover:text-rose-400 px-2 py-1 rounded-md"
-                  >remove</button>
                 </div>
-              ))}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: "removeSong", songId: s.id })}
+                  className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40 hover:text-[var(--hp-magenta)] px-2 py-1"
+                >remove</button>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Spotify importer (only when connected) */}
-        {spotifyToken && (
-          <div className="mt-4 mx-6">
-            <SpotifyImporter
-              token={spotifyToken}
-              dispatch={dispatch}
-              deviceId={deviceId}
-              onDisconnect={onSpotifyDisconnect}
-              existingTitles={new Set(mySongs.map(s => (s.title + "|" + s.artist).toLowerCase()))}
+        {!atSongLimit && (
+          <div className="song-suggest-shell mt-4">
+            {state.songsPerPlayer && (
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--hp-magenta)] mb-2">
+                Song {mySongs.length + 1} of {songsPerPlayer}
+              </div>
+            )}
+            <SongSearchPicker
+              variant="home"
+              error={err}
+              onClearError={() => setErr("")}
+              onOpenChange={setSongSearchOpen}
+              onAdd={addSongFromSearch}
             />
           </div>
         )}
 
-        {/* Add a song */}
-        <div className="mt-4 mx-6 rounded-2xl border border-[#282828] bg-[#181818] p-4 space-y-3 grain relative z-10 overflow-visible">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/45 -mb-1">
-            {me ? `Adding as ${me.name}` : "Adding song"}
+        {atSongLimit && (
+          <div className="mt-4 rounded-2xl border border-[var(--hp-neon)]/30 bg-[var(--hp-neon)]/10 px-4 py-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--hp-neon)]">
+            All {songsPerPlayer} song{songsPerPlayer === 1 ? "" : "s"} added — waiting for host
           </div>
-          <SongSearchPicker
-            variant="lobby"
-            error={err}
-            onClearError={() => setErr("")}
-            onAdd={addSongFromSearch}
-          />
+        )}
+
+        <div className="mt-6">
+          <PoolCounter count={state.songs.length} target={poolTarget} variant="home" />
         </div>
 
-        <div className="mt-6 px-6 relative z-10">
-          <PoolCounter count={state.songs.length} />
-        </div>
-
-        <div className="px-6 pt-6 pb-10">
+        <div className="mt-6 pb-2">
           {isHost ? (
-            <button
-              disabled={!canStart}
-              onClick={() => dispatch({ type: "start" })}
-              className={cx(
-                "w-full rounded-xl py-4 text-base font-semibold transition",
-                canStart
-                  ? "bg-[#1DB954] hover:bg-[#1ed760] text-black"
-                  : "bg-[#282828] text-[#535353] cursor-not-allowed"
-              )}
-            >
+            <HpPrimaryBtn disabled={!canStart} onClick={() => dispatch({ type: "start" })}>
               {canStart
-                ? `Start · ${state.songs.length} round${state.songs.length === 1 ? "" : "s"} →`
-                : state.songs.length < 3
-                  ? `Need ${3 - state.songs.length} more song${3 - state.songs.length === 1 ? "" : "s"}`
-                  : "Need at least 2 different players"}
-            </button>
+                ? `START ${state.songs.length} ROUND${state.songs.length === 1 ? "" : "S"} →`
+                : state.players.length < 3
+                  ? `NEED ${3 - state.players.length} MORE PLAYER${3 - state.players.length === 2 ? "" : "S"}`
+                  : poolTarget
+                    ? `NEED ${poolTarget - state.songs.length} MORE SONG${poolTarget - state.songs.length === 1 ? "" : "S"}`
+                    : "NEED AT LEAST 2 PLAYERS WITH SONGS"}
+            </HpPrimaryBtn>
           ) : (
-            <div className="w-full rounded-xl py-4 text-center bg-[#181818] border border-[#282828] text-[#B3B3B3] text-sm">
-              {canStart ? "Waiting for host to start…" : "Waiting on more songs…"}
-            </div>
+            <HpPanel center className="py-4">
+              <HpSectionDesc>
+                {canStart ? "Ready — waiting for host to start…" : "Waiting on more songs…"}
+              </HpSectionDesc>
+            </HpPanel>
           )}
         </div>
       </div>
-    </div>
+    </HomeStageShell>
   );
 }
 
@@ -1705,7 +1759,92 @@ function TimerRing({ progress, size = 168, stroke = 6, gold }) {
   );
 }
 
-// ---------- RoundScreen ----------
+// ---------- Round reactions (local float; Twemoji for cartoon look) ----------
+const TWEMOJI_CDN = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72";
+
+const ROUND_REACTIONS = [
+  { id: "fire", code: "1f525", label: "Fire", tone: "pos" },
+  { id: "hearts", code: "1f60d", label: "Love", tone: "pos" },
+  { id: "star", code: "2b50", label: "Star", tone: "pos" },
+  { id: "trash", code: "1f5d1-fe0f", label: "Trash", tone: "neg" },
+  { id: "poop", code: "1f4a9", label: "Poop", tone: "neg" },
+  { id: "vomit", code: "1f92e", label: "Sick", tone: "neg" },
+];
+
+function twemojiSrc(code) {
+  return `${TWEMOJI_CDN}/${code}.png`;
+}
+
+function RoundReactionBar({ variant }) {
+  const [floats, setFloats] = useStateApp([]);
+  const nextIdRef = useRefApp(0);
+
+  const spawnFloat = (code, ev) => {
+    const rect = ev.currentTarget.getBoundingClientRect();
+    const id = ++nextIdRef.current;
+    setFloats(prev => [...prev, {
+      id,
+      code,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    }]);
+    window.setTimeout(() => {
+      setFloats(prev => prev.filter(f => f.id !== id));
+    }, 1300);
+  };
+
+  const positive = ROUND_REACTIONS.filter(r => r.tone === "pos");
+  const negative = ROUND_REACTIONS.filter(r => r.tone === "neg");
+
+  return (
+    <>
+      <div className="reaction-float-layer" aria-hidden="true">
+        {floats.map(f => (
+          <img
+            key={f.id}
+            src={twemojiSrc(f.code)}
+            alt=""
+            className="reaction-float-emoji"
+            style={{ left: f.x, top: f.y }}
+          />
+        ))}
+      </div>
+      <div className={cx("reaction-bar", variant === "cinematic" && "reaction-bar--cinematic")}>
+        <div className="reaction-bar-inner">
+          <div className="reaction-bar-group reaction-bar-group--pos">
+            {positive.map(r => (
+              <button
+                key={r.id}
+                type="button"
+                className="reaction-btn reaction-btn--pos"
+                aria-label={r.label}
+                onClick={(ev) => spawnFloat(r.code, ev)}
+              >
+                <img src={twemojiSrc(r.code)} alt="" className="reaction-btn-img" draggable={false} />
+              </button>
+            ))}
+          </div>
+          <div className="reaction-bar-divider" aria-hidden="true" />
+          <div className="reaction-bar-group reaction-bar-group--neg">
+            {negative.map(r => (
+              <button
+                key={r.id}
+                type="button"
+                className="reaction-btn reaction-btn--neg"
+                aria-label={r.label}
+                onClick={(ev) => spawnFloat(r.code, ev)}
+              >
+                <img src={twemojiSrc(r.code)} alt="" className="reaction-btn-img" draggable={false} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ---------- RoundScreen (multi-device — cinematic home theme) ----------
 function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
   const audioRef = useRefApp(null);
@@ -1714,10 +1853,10 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   const [playing, setPlaying] = useStateApp(false);
   const [audioError, setAudioError] = useStateApp(false);
 
-  const isOwner = song && song.ownerDeviceId === deviceId;
-  const guessers = state.players.filter(p => p.deviceId !== (song && song.ownerDeviceId));
-  const lockedCount = Object.keys(state.guesses).length;
+  const voters = state.players.filter(p => p.online !== false);
+  const lockedCount = voters.filter(p => state.guesses[p.deviceId] != null).length;
   const myGuess = state.guesses[deviceId];
+  const isSongOwner = song && song.ownerDeviceId === deviceId;
 
   useEffectApp(() => {
     setProgress(0);
@@ -1760,15 +1899,13 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
     };
   }, []);
 
-  // Host watches for "everyone locked in" — when all guessers have guessed, host reveals.
   useEffectApp(() => {
     if (!isHost || !song) return;
-    const ids = state.players.filter(p => p.deviceId !== song.ownerDeviceId).map(p => p.deviceId);
+    const ids = voters.map(p => p.deviceId);
     if (ids.length === 0) return;
     const allIn = ids.every(id => state.guesses[id] != null);
     if (allIn) {
-      // small delay so the locked-in UI animates
-      const t = setTimeout(() => dispatch({ type: "revealRound" }), 250);
+      const t = setTimeout(() => dispatch({ type: "revealRound" }), 350);
       return () => clearTimeout(t);
     }
   }, [isHost, song, state.players, state.guesses, dispatch]);
@@ -1785,8 +1922,9 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   if (!song) return null;
 
   const setGuess = (targetDeviceId) => {
-    if (myGuess) return; // already locked
-    if (targetDeviceId === deviceId) return;
+    if (myGuess) return;
+    const ownerMayPickSelf = isSongOwner && targetDeviceId === deviceId;
+    if (targetDeviceId === deviceId && !ownerMayPickSelf) return;
     dispatch({
       type: "submitGuess",
       targetDeviceId,
@@ -1795,35 +1933,30 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   };
 
   const secondsLeft = Math.max(0, Math.ceil((1 - progress) * (duration || 30)));
+  const guessTarget = myGuess ? state.players.find(p => p.deviceId === myGuess) : null;
 
   return (
-    <div className="fade-enter relative">
-      {song.cover && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <img src={song.cover} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(40px) saturate(1.15)", transform: "scale(1.25)", opacity: 0.55 }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(13,7,18,0.55) 0%, rgba(13,7,18,0.80) 40%, rgba(13,7,18,0.95) 75%, var(--bg) 100%)" }} />
-        </div>
-      )}
-      <div className="relative z-10">
-        <TopBar
-          subtitle="Round in play"
-          onBack={onLeave}
-          backLabel="Leave game"
-          right={
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Round</div>
-              <div className="font-mono text-sm font-semibold text-[#1DB954] tabular">
-                {state.roundIdx + 1}<span className="text-[#535353]">/{state.order.length}</span>
-              </div>
+    <HomeStageShell>
+      <HomeHeader
+        subtitle="Round in play · multi-device"
+        onBack={onLeave}
+        backLabel="Leave game"
+        right={
+          <div className="text-right shrink-0">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Round</div>
+            <div className="font-display text-[22px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>
+              {state.roundIdx + 1}<span className="text-white/35">/{state.order.length}</span>
             </div>
-          }
-        />
+          </div>
+        }
+      />
 
-        <div className="mx-6 mt-1 rounded-3xl border border-[#282828] bg-[#181818] p-5 grain relative overflow-hidden">
+      <div className="px-6 mt-2 flex-1">
+        <HpPanel className="p-5 overflow-hidden">
           <div className="flex flex-col items-center">
             <div className="relative grid place-items-center" style={{ width: 168, height: 168 }}>
-              <div className="absolute inset-0"><TimerRing progress={progress} /></div>
-              <div className={cx("w-[120px] h-[120px] rounded-full overflow-hidden border border-black/40 grid place-items-center relative spin-slow", !playing && "spin-paused")}>
+              <div className="absolute inset-0"><TimerRing progress={progress} gold /></div>
+              <div className={cx("w-[120px] h-[120px] rounded-full overflow-hidden border-2 border-[var(--hp-gold)]/40 grid place-items-center relative spin-slow", !playing && "spin-paused")}>
                 {song.cover ? (
                   <>
                     <img src={song.cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -1832,119 +1965,143 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
                 ) : (
                   <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, #000 0 18%, #282828 18.5% 60%, #181818 60.5% 100%)" }}></div>
                 )}
-                <div className="relative w-6 h-6 rounded-full bg-white"></div>
+                <div className="relative w-6 h-6 rounded-full bg-[var(--hp-gold)]"></div>
               </div>
-              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 text-[11px] font-mono tabular text-[#B3B3B3]">
-                0:{secondsLeft.toString().padStart(2,"0")}
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-white/15 font-mono text-[11px] tabular text-white/60">
+                0:{secondsLeft.toString().padStart(2, "0")}
               </div>
             </div>
 
-            <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">Now spinning</div>
-            <div className="mt-1 text-lg font-semibold leading-tight text-center px-4 truncate w-full">{song.title}</div>
-            <div className="text-sm text-white/65 text-center truncate w-full px-4">{song.artist}</div>
+            <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
+            <div className="mt-1 font-display text-[22px] leading-tight text-center px-4 truncate w-full tracking-[0.02em]">{song.title}</div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 text-center truncate w-full px-4">{song.artist}</div>
 
-            <div className="mt-3 flex items-center gap-3 text-[11px] text-white/45 font-mono">
+            <div className="mt-3 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
               {playing ? (
                 <div className="flex items-end gap-[2px] h-3">
-                  <div className="w-[2px] bg-[#1DB954] eq-bar"></div>
-                  <div className="w-[2px] bg-[#1DB954] eq-bar" style={{ animationDelay: "120ms" }}></div>
-                  <div className="w-[2px] bg-[#1DB954] eq-bar" style={{ animationDelay: "240ms" }}></div>
+                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)" }}></div>
+                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)", animationDelay: "120ms" }}></div>
+                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)", animationDelay: "240ms" }}></div>
                 </div>
               ) : <div className="w-2 h-2 rounded-full bg-white/30"></div>}
-              <button onClick={togglePlay} disabled={!song.url} className={cx("underline-offset-2 hover:underline", !song.url && "opacity-30 cursor-not-allowed")}>
+              <button onClick={togglePlay} disabled={!song.url} className={cx("hover:text-[var(--hp-gold)] transition", !song.url && "opacity-30 cursor-not-allowed")}>
                 {playing ? "pause" : "play"}
               </button>
             </div>
             {audioError && (
-              <div className="mt-2 text-[12px] text-[#B3B3B3] text-center">
-                Preview unavailable for this song — guess from title & artist.
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 text-center">
+                Preview unavailable — guess from title & artist
               </div>
             )}
           </div>
-
           {song.url && <audio ref={audioRef} src={song.url} preload="auto" />}
-        </div>
+        </HpPanel>
 
-        {/* Guess UI */}
-        <div className="mt-6 px-6">
+        <div className="mt-5">
           <div className="flex items-baseline justify-between">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-              {isOwner ? "Your song!" : myGuess ? "Locked in" : "Who picked it?"}
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
+              {myGuess ? "Locked in" : "Who picked it?"}
             </div>
-            <div className="text-[11px] text-white/40 tabular">{lockedCount}/{guessers.length} locked in</div>
+            <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{lockedCount}/{voters.length} locked in</div>
           </div>
 
-          {isOwner ? (
-            <div className="mt-3 rounded-2xl bg-[#181818] border border-[#282828] p-5 text-center">
-              <div className="text-3xl mb-2">🤫</div>
-              <div className="text-sm text-[#B3B3B3]">Sit tight while everyone guesses.</div>
-              <div className="mt-3 flex justify-center gap-1 flex-wrap">
-                {guessers.map(p => (
-                  <div key={p.deviceId} className={cx(
-                    "px-2 py-1 rounded-full text-[11px] flex items-center gap-1.5 border",
-                    state.guesses[p.deviceId]
-                      ? "bg-[#1DB954]/15 border-[#1DB954]/40 text-[#1DB954]"
-                      : "bg-[#282828] border-transparent text-[#B3B3B3]"
-                  )}>
-                    <Avatar name={p.name} size={14} />
-                    {p.name}
-                    {state.guesses[p.deviceId] && <span>✓</span>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {state.players.map(p => {
+              const locked = state.guesses[p.deviceId] != null;
+              const isMe = p.deviceId === deviceId;
+              return (
+                <div
+                  key={p.deviceId}
+                  className={cx(
+                    "px-2.5 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5",
+                    locked
+                      ? "bg-black/40 border-[var(--hp-neon)]/40 text-[var(--hp-neon)]"
+                      : isMe && !myGuess
+                        ? "bg-[var(--hp-magenta)]/20 border-[var(--hp-magenta)]/50 text-white"
+                        : "bg-black/35 border-white/15 text-white/50"
+                  )}
+                >
+                  <Avatar name={p.name} size={18} />
+                  <span>{p.name}</span>
+                  {locked && <span>✓</span>}
+                  {isMe && !locked && <span className="font-mono text-[9px] uppercase tracking-[0.1em]">you</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          <HpPanel className="mt-4 p-3 min-h-[180px]">
+            {myGuess ? (
+              <div className="text-center py-6">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
+                  You locked in
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <Avatar name={guessTarget?.name} size={32} />
+                  <div className="font-display text-[22px] tracking-[0.04em]">{guessTarget?.name}</div>
+                </div>
+                {isSongOwner && myGuess === deviceId && (
+                  <HpSectionDesc>Your song — you picked yourself.</HpSectionDesc>
+                )}
+                <HpSectionDesc>Waiting for {voters.length - lockedCount} more…</HpSectionDesc>
+              </div>
+            ) : (
+              <>
+                {isSongOwner && (
+                  <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                    Your song — you can still vote · pick yourself if it was you
                   </div>
-                ))}
-              </div>
-            </div>
-          ) : myGuess ? (
-            <div className="mt-3 rounded-2xl border border-[#1DB954]/30 bg-[#1DB954]/[0.06] p-5 text-center">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954] mb-2">Your guess</div>
-              <div className="flex items-center justify-center gap-2">
-                <Avatar name={state.players.find(p => p.deviceId === myGuess)?.name} size={32} />
-                <div className="text-lg font-semibold">{state.players.find(p => p.deviceId === myGuess)?.name}</div>
-              </div>
-              <div className="mt-3 text-[11px] text-white/45">Waiting for {guessers.length - lockedCount} more…</div>
-            </div>
-          ) : (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {state.players.map(p => {
-                const self = p.deviceId === deviceId;
-                const isSongOwner = p.deviceId === song.ownerDeviceId;
-                const disabled = self || isSongOwner; // can't pick yourself; can't pick the song's owner (you don't know who that is yet, but it'd be self for owner)
-                // Actually we DO want owner pickable (they're a real candidate)
-                // Only self is disabled.
-                const reallyDisabled = self;
-                return (
-                  <button
-                    key={p.deviceId}
-                    disabled={reallyDisabled}
-                    onClick={() => setGuess(p.deviceId)}
-                    className={cx(
-                      "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
-                      reallyDisabled
-                        ? "bg-[#181818] border-[#282828] text-[#535353] cursor-not-allowed"
-                        : "bg-[#181818] border-[#282828] hover:bg-[#202020] hover:border-[#3a3a3a]"
-                    )}
-                  >
-                    <Avatar name={p.name} size={26} dim={reallyDisabled} />
-                    <div className="min-w-0">
-                      <div className="truncate">{p.name}</div>
-                      {self && <div className="text-[10px] text-[#535353]">that's you</div>}
-                      {p.online === false && !self && <div className="text-[10px] text-[#535353]">offline</div>}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                )}
+                <div className="px-2 pt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                  Who submitted this track?
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {state.players.map(p => {
+                    const isSelf = p.deviceId === deviceId;
+                    const ownerMayPickSelf = isSelf && isSongOwner;
+                    const disabled = isSelf && !ownerMayPickSelf;
+                    return (
+                      <button
+                        key={p.deviceId}
+                        disabled={disabled}
+                        onClick={() => setGuess(p.deviceId)}
+                        className={cx(
+                          "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
+                          disabled
+                            ? "bg-black/25 border-white/8 text-white/30 cursor-not-allowed"
+                            : "bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
+                        )}
+                      >
+                        <Avatar name={p.name} size={26} dim={disabled} />
+                        <div className="min-w-0">
+                          <div className="truncate">{p.name}</div>
+                          {ownerMayPickSelf && (
+                            <div className="font-mono text-[9px] uppercase text-[var(--hp-gold)]">that's you</div>
+                          )}
+                          {disabled && !ownerMayPickSelf && (
+                            <div className="font-mono text-[9px] uppercase text-white/30">that's you</div>
+                          )}
+                          {p.online === false && !disabled && (
+                            <div className="font-mono text-[9px] uppercase text-white/30">offline</div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </HpPanel>
         </div>
 
-        <div className="px-6 pt-6 pb-10 text-center">
-          {!isHost && (
-            <div className="text-[11px] text-white/35">
-              {lockedCount === guessers.length ? "All in — host is revealing…" : "Reveal happens when everyone's locked in."}
-            </div>
-          )}
+        <div className="pt-6 pb-28 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
+          {isHost
+            ? (lockedCount === voters.length ? "Everyone's in — revealing…" : "Reveal when everyone's locked in")
+            : (lockedCount === voters.length ? "All in — host is revealing…" : "Reveal happens when everyone's locked in")}
         </div>
       </div>
-    </div>
+      <RoundReactionBar variant="cinematic" />
+    </HomeStageShell>
   );
 }
 
@@ -1954,9 +2111,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
   if (!song) return null;
 
   const playersById = Object.fromEntries(state.players.map(p => [p.deviceId, p]));
-  const guessers = cinematic
-    ? state.players
-    : state.players.filter(p => p.deviceId !== song.ownerDeviceId);
+  const guessers = state.players;
   const guessedIds = guessers.filter(g => state.guesses[g.deviceId]).map(g => g.deviceId);
   const wrongCount = guessedIds.filter(id => state.guesses[id] !== song.ownerDeviceId).length;
   const sneaky = guessedIds.length > 0 && wrongCount * 2 > guessedIds.length;
@@ -1989,7 +2144,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                   ✦ Sneaky · {song.ownerName} +1
                 </span>
               )}
-              {!cinematic && state.fastestCorrect && (
+              {!state.localPassAround && state.fastestCorrect && (
                 <span
                   className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-mono uppercase tracking-[0.12em]"
                   style={{ background: "rgba(245,197,24,0.12)", color: "var(--hp-gold)", borderColor: "rgba(245,197,24,0.35)" }}
@@ -2055,7 +2210,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                     <span className="font-medium">{noGuess ? "—" : playersById[target]?.name}</span>
                   </div>
                   <div className="text-[11px] text-white/40 font-mono tabular">
-                    {noGuess ? "didn't lock in" : right ? "correct" : "wrong"}{!cinematic && seconds ? ` · ${seconds}s` : ""}
+                    {noGuess ? "didn't lock in" : right ? "correct" : "wrong"}{!state.localPassAround && seconds ? ` · ${seconds}s` : ""}
                     {state.streaks[guesser.deviceId] >= 2 && right && (
                       <span className="ml-1" style={cinematic ? { color: "var(--hp-gold)" } : undefined}>
                         🔥 {state.streaks[guesser.deviceId]}
@@ -2460,31 +2615,9 @@ function LocalLobbyScreen({ state, dispatch, onLeave }) {
         )}
 
         {step === "rounds" && (
-          <div className="mt-6">
-            <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Songs per player</div>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {[1, 2, 3, 4, 5].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setRoundPick(n)}
-                    className={cx(
-                      "min-w-[52px] h-[52px] rounded-xl font-display text-[26px] tabular border transition",
-                      roundPick === n
-                        ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
-                        : "bg-[#22222c] text-white/80 border-white/15 hover:border-[var(--hp-gold)]/40"
-                    )}
-                  >{n}</button>
-                ))}
-              </div>
-              <div className="mt-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
-                {roundPick} round{roundPick === 1 ? "" : "s"} · each player adds {roundPick} song{roundPick === 1 ? "" : "s"}
-              </div>
-            </div>
-            <div className="mt-4">
-              <HpGoldBtn onClick={confirmRounds}>LOCK IN {roundPick} ROUND{roundPick === 1 ? "" : "S"} →</HpGoldBtn>
-            </div>
+          <div className="mt-6 space-y-4">
+            <RoundsPicker value={roundPick} onChange={setRoundPick} />
+            <HpGoldBtn onClick={confirmRounds}>LOCK IN {roundPick} ROUND{roundPick === 1 ? "" : "S"} →</HpGoldBtn>
           </div>
         )}
 
@@ -2845,17 +2978,21 @@ function LocalRoundScreen({ state, dispatch, onLeave }) {
           </HpPanel>
         </div>
 
-        <div className="pt-6 pb-2 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
+        <div className="pt-6 pb-28 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
           Reveal when everyone has voted
         </div>
       </div>
+      <RoundReactionBar variant="cinematic" />
     </HomeStageShell>
   );
 }
 
 // ---------- GameView (after start screen, with session) ----------
-function GameView({ choice, spotifyToken, onSpotifyDisconnect, onReset }) {
-  const mode = useMemoApp(() => ({ kind: choice.kind, code: choice.code }), [choice.kind, choice.code]);
+function GameView({ choice, onReset }) {
+  const mode = useMemoApp(
+    () => ({ kind: choice.kind, code: choice.code, songsPerPlayer: choice.songsPerPlayer }),
+    [choice.kind, choice.code, choice.songsPerPlayer]
+  );
   const { deviceId, state, dispatch, status, isHost } = useSession(mode, choice.name);
 
   // Splash auto-advances; only host triggers it
@@ -2872,7 +3009,6 @@ function GameView({ choice, spotifyToken, onSpotifyDisconnect, onReset }) {
   const common = {
     state, dispatch, deviceId, isHost,
     code: choice.code, mode, onLeave: onReset,
-    spotifyToken, onSpotifyDisconnect,
   };
 
   return (
@@ -2888,7 +3024,7 @@ function GameView({ choice, spotifyToken, onSpotifyDisconnect, onReset }) {
           totalRounds={state.order.length}
           onDone={() => enterRound.current && enterRound.current()}
           isHost={isHost}
-          cinematic={isLocal}
+          cinematic
         />
       )}
       {state.phase === "round" && (
@@ -2896,8 +3032,8 @@ function GameView({ choice, spotifyToken, onSpotifyDisconnect, onReset }) {
           ? <LocalRoundScreen {...common} />
           : <RoundScreen {...common} />
       )}
-      {state.phase === "results" && <ResultsScreen {...common} cinematic={isLocal} />}
-      {state.phase === "final" && <FinalScreen {...common} cinematic={isLocal} />}
+      {state.phase === "results" && <ResultsScreen {...common} cinematic />}
+      {state.phase === "final" && <FinalScreen {...common} cinematic />}
     </>
   );
 }
@@ -2905,76 +3041,18 @@ function GameView({ choice, spotifyToken, onSpotifyDisconnect, onReset }) {
 // ---------- App ----------
 function App() {
   const [choice, setChoice] = useStateApp(null);
-  const [spotifyToken, setSpotifyToken] = useStateApp(() => (typeof spotifyGetStoredToken === "function" ? spotifyGetStoredToken() : null));
-  const [spotifyLoading, setSpotifyLoading] = useStateApp(false);
-  const [spotifyError, setSpotifyError] = useStateApp(null);
-
-  // On mount: if we're returning from a Spotify redirect, finish the exchange.
-  useEffectApp(() => {
-    let cancelled = false;
-    (async () => {
-      if (typeof spotifyHandleRedirect !== "function") return;
-      try {
-        const u = new URL(window.location.href);
-        if (!u.searchParams.get("code") && !u.searchParams.get("error")) return;
-        setSpotifyLoading(true);
-        const result = await spotifyHandleRedirect();
-        if (cancelled) return;
-        if (result && result.token) {
-          setSpotifyToken(result.token);
-          setSpotifyError(null);
-        } else if (result && result.error) {
-          setSpotifyError(humanSpotifyError(result.error));
-        }
-      } catch (e) {
-        if (!cancelled) setSpotifyError("Couldn't complete sign-in. Try again.");
-      } finally {
-        if (!cancelled) setSpotifyLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const onSpotifyLogin = async () => {
-    setSpotifyError(null);
-    setSpotifyLoading(true);
-    try { await spotifyStartLogin(); }
-    catch (e) {
-      setSpotifyError("Couldn't start sign-in.");
-      setSpotifyLoading(false);
-    }
-  };
 
   return (
     <div className="shell">
-      {!choice && (
-        <StartScreen
-          onChoose={setChoice}
-          spotifyToken={spotifyToken}
-          spotifyLoading={spotifyLoading}
-          spotifyError={spotifyError}
-          onSpotifyLogin={onSpotifyLogin}
-        />
-      )}
+      {!choice && <StartScreen onChoose={setChoice} />}
       {choice && (
         <GameView
           choice={choice}
-          spotifyToken={spotifyToken}
-          onSpotifyDisconnect={() => { spotifyClearToken(); setSpotifyToken(null); }}
           onReset={() => setChoice(null)}
         />
       )}
     </div>
   );
-}
-
-function humanSpotifyError(code) {
-  if (code === "access_denied") return "You declined access.";
-  if (code === "missing_verifier") return "Sign-in expired — please try again.";
-  if (code === "invalid_client") return "Spotify client ID isn't configured yet.";
-  if (code === "invalid_grant") return "Sign-in code expired — try again.";
-  if (code === "network") return "Network error — check your connection.";
-  return "Sign-in failed (" + code + ").";
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
