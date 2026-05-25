@@ -371,6 +371,109 @@
     background: rgba(29,185,84,0.10);
     border-color: rgba(29,185,84,0.45);
   }
+
+  /* Round reaction bar (Twemoji — cartoon style) */
+  .reaction-float-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 200;
+    overflow: hidden;
+  }
+  .reaction-float-emoji {
+    position: fixed;
+    width: 46px;
+    height: 46px;
+    margin-left: -23px;
+    margin-top: -23px;
+    animation: reactionFloatUp 1.25s cubic-bezier(.22,.68,.36,1) forwards;
+    filter: drop-shadow(0 2px 0 rgba(0,0,0,0.4)) drop-shadow(0 5px 14px rgba(0,0,0,0.35));
+    will-change: transform, opacity;
+  }
+  @keyframes reactionFloatUp {
+    0%   { transform: translateY(0) scale(0.45) rotate(-10deg); opacity: 0; }
+    10%  { opacity: 1; }
+    18%  { transform: translateY(-14px) scale(1.2) rotate(6deg); opacity: 1; }
+    100% { transform: translateY(-min(150px, 32vh)) scale(1.08) rotate(14deg); opacity: 0; }
+  }
+  .reaction-bar {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 400px;
+    z-index: 150;
+    padding: 6px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+  }
+  .reaction-bar-inner {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 18px;
+    background: rgba(24,24,24,0.94);
+    border: 1px solid #333;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 -10px 36px rgba(0,0,0,0.5);
+  }
+  .reaction-bar--cinematic .reaction-bar-inner {
+    background: rgba(8,8,12,0.9);
+    border-color: rgba(245,197,24,0.28);
+    box-shadow: 0 -10px 32px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .reaction-bar-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+  .reaction-bar-group--pos { justify-content: flex-start; }
+  .reaction-bar-group--neg { justify-content: flex-end; }
+  .reaction-bar-divider {
+    width: 1px;
+    height: 28px;
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.22), transparent);
+    flex-shrink: 0;
+  }
+  .reaction-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: rgba(255,255,255,0.04);
+    display: grid;
+    place-items: center;
+    transition: transform 120ms ease, background 140ms ease, border-color 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .reaction-btn:active { transform: scale(0.88); }
+  .reaction-btn--pos:hover {
+    background: rgba(29,185,84,0.12);
+    border-color: rgba(29,185,84,0.35);
+  }
+  .reaction-btn--neg:hover {
+    background: rgba(255,80,80,0.1);
+    border-color: rgba(255,100,100,0.3);
+  }
+  .reaction-bar--cinematic .reaction-btn--pos:hover {
+    background: rgba(245,197,24,0.14);
+    border-color: rgba(245,197,24,0.45);
+  }
+  .reaction-bar--cinematic .reaction-btn--neg:hover {
+    background: rgba(255,45,149,0.12);
+    border-color: rgba(255,45,149,0.35);
+  }
+  .reaction-btn-img {
+    width: 30px;
+    height: 30px;
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
 </style>
 </head>
 <body class="text-white">
