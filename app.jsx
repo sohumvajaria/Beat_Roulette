@@ -860,7 +860,7 @@ function RoundsPicker({ value, onChange }) {
               "min-w-[52px] h-[52px] rounded-xl font-display text-[26px] tabular border transition",
               value === n
                 ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
-                : "bg-[#22222c] text-white/80 border-white/15 hover:border-[var(--hp-gold)]/40"
+                : "bg-[#22222c] text-white/80 border-white/15 hover:bg-[var(--hp-gold)] hover:text-[#08080C] hover:border-[var(--hp-gold)]"
             )}
           >{n}</button>
         ))}
@@ -921,7 +921,7 @@ function setWheelTransform(el, angleDeg) {
   el.style.transform = `rotate3d(0, 0, 1, ${angleDeg}deg)`;
 }
 
-function HomeScreen({ onMultiDevice, onSingleDevice }) {
+function HomeScreen({ onMultiDevice, onSoloShowdown }) {
   const wheelRef = useRefApp(null);
   const wheelMotionRef = useRefApp({
     angle: 0,
@@ -1082,20 +1082,20 @@ function HomeScreen({ onMultiDevice, onSingleDevice }) {
           onClick={onMultiDevice}
           className="btn-in s1 btn-spotify w-full rounded-xl px-5 py-4 font-display tracking-[0.14em] text-[22px]"
         >
-          MULTI-DEVICE
+          PARTY MODE
         </button>
         <div className="btn-in s1 mt-1.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
           Everyone on their own phone · host or join a room
         </div>
 
         <HpGoldBtn
-          onClick={onSingleDevice}
+          onClick={onSoloShowdown}
           className="btn-in s2 mt-5 py-4 text-[22px]"
         >
-          SINGLE-DEVICE
+          SOLO SHOWDOWN
         </HpGoldBtn>
         <div className="btn-in s2 mt-1.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-          One phone passed around the group
+          Kahoot-style guessing · auto-match with up to 5 players
         </div>
       </div>
 
@@ -1123,9 +1123,9 @@ function HomeScreen({ onMultiDevice, onSingleDevice }) {
   );
 }
 
-// ---------- StartScreen — choose host/join/local ----------
+// ---------- StartScreen — choose Beat Roulette or Solo Showdown ----------
 function StartScreen({ onChoose }) {
-  const [view, setView] = useStateApp("home"); // home | multi | host | join
+  const [view, setView] = useStateApp("home"); // home | multi | host | join | solo
   const [name, setName] = useStateApp("");
   const [code, setCode] = useStateApp("");
   const [roundPick, setRoundPick] = useStateApp(3);
@@ -1145,6 +1145,7 @@ function StartScreen({ onChoose }) {
   const startHost = () => {
     if (!name.trim()) return;
     onChoose({
+      game: "beat",
       kind: "host",
       code: randomCode(),
       name: name.trim(),
@@ -1154,6 +1155,7 @@ function StartScreen({ onChoose }) {
   const startJoin = () => {
     if (!name.trim() || code.trim().length < 4) return;
     onChoose({
+      game: "beat",
       kind: "client",
       code: code.trim().toUpperCase(),
       name: name.trim(),
@@ -1165,7 +1167,7 @@ function StartScreen({ onChoose }) {
     return (
       <HomeScreen
         onMultiDevice={() => setView("multi")}
-        onSingleDevice={() => onChoose({ kind: "local" })}
+        onSoloShowdown={() => setView("solo")}
       />
     );
   }
@@ -1247,6 +1249,10 @@ function StartScreen({ onChoose }) {
     );
   }
 
+  if (view === "solo") {
+    return <SoloShowdownSetupScreen onChoose={onChoose} onBack={() => setView("home")} />;
+  }
+
   return null;
 }
 
@@ -1283,6 +1289,562 @@ function ConnectionGate({ status, mode, onReset }) {
       </div>
     </div>
   );
+}
+
+// ---------- Solo Showdown ----------
+const SOLO_LENGTHS = [
+  { id: "short", label: "Short", rounds: 3 },
+  { id: "medium", label: "Medium", rounds: 5 },
+  { id: "long", label: "Long", rounds: 7 },
+];
+
+function hashStringToSeed(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function soloRoomIdForNow(lengthId) {
+  const bucket = Math.floor(Date.now() / 30000);
+  return `ss-${lengthId}-${bucket.toString(36)}`;
+}
+
+function SoloLengthPicker({ value, onChange }) {
+  const selected = SOLO_LENGTHS.find(x => x.id === value) || SOLO_LENGTHS[0];
+  return (
+    <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
+      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Game length</div>
+      <div className="grid grid-cols-3 gap-2">
+        {SOLO_LENGTHS.map(opt => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={cx(
+              "group rounded-xl px-2 py-3 text-center border transition",
+              value === opt.id
+                ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
+                : "bg-[#22222c] text-white/80 border-white/15 hover:bg-[var(--hp-gold)] hover:text-[#08080C] hover:border-[var(--hp-gold)]"
+            )}
+          >
+            <div className={cx(
+              "font-display tracking-[0.1em] text-[17px] leading-none",
+              value === opt.id ? "text-[#08080C]" : "text-white/80 group-hover:text-[#08080C]"
+            )}>
+              {opt.label.toUpperCase()}
+            </div>
+            <div className={cx(
+              "mt-1 font-mono text-[10px] uppercase tracking-[0.14em] tabular",
+              value === opt.id ? "text-[#08080C]/70" : "text-white/45 group-hover:text-[#08080C]/65"
+            )}>
+              {opt.rounds} rnd
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+        {selected.rounds} round{selected.rounds === 1 ? "" : "s"} · chart hits · up to 5 players
+      </div>
+    </div>
+  );
+}
+
+function SoloShowdownSetupScreen({ onChoose, onBack }) {
+  const [name, setName] = useStateApp("");
+  const [lengthId, setLengthId] = useStateApp("short");
+  const selected = SOLO_LENGTHS.find(x => x.id === lengthId) || SOLO_LENGTHS[0];
+
+  const start = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const roomId = soloRoomIdForNow(lengthId);
+    onChoose({
+      game: "solo",
+      name: trimmed,
+      lengthId,
+      roundCount: selected.rounds,
+      roomId,
+      seed: hashStringToSeed(roomId),
+    });
+  };
+
+  return (
+    <HomeStageShell>
+      <HomeHeader subtitle="Solo Showdown" onBack={onBack} backLabel="Back" />
+      <div className="px-6 mt-4 flex-1 pb-8">
+        <HpSectionTitle>
+          FIND A <span style={{ color: "var(--hp-gold)" }}>MATCH</span>
+        </HpSectionTitle>
+        <HpSectionDesc>
+          Pick game length, enter your name, then jump into a public lobby with up to 5 players.
+        </HpSectionDesc>
+
+        <div className="mt-6 space-y-4">
+          <SoloLengthPicker value={lengthId} onChange={setLengthId} />
+          <HpPanel>
+            <HpField label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
+          </HpPanel>
+          <HpPrimaryBtn disabled={!name.trim()} onClick={start}>FIND MATCH →</HpPrimaryBtn>
+        </div>
+      </div>
+    </HomeStageShell>
+  );
+}
+
+function SoloLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
+  const players = state.players || [];
+  const canStart = isHost && state.chartTracks && state.chartTracks.length >= 8;
+
+  return (
+    <HomeStageShell>
+      <HomeHeader
+        subtitle={`Lobby · ${state.roundCount} round${state.roundCount === 1 ? "" : "s"}`}
+        onBack={onLeave}
+        backLabel="Leave room"
+      />
+
+      <div className="px-6 mt-2 flex-1 pb-6">
+        <HpSectionTitle>
+          {isHost ? (
+            <>YOU'RE <span style={{ color: "var(--hp-gold)" }}>HOSTING</span></>
+          ) : (
+            <>YOU'RE <span style={{ color: "var(--hp-magenta)" }}>IN</span></>
+          )}
+        </HpSectionTitle>
+        <HpSectionDesc>
+          {isHost
+            ? "Wait for players to join nearby, then start when you're ready."
+            : "Hang tight — the host starts the showdown when everyone's set."}
+        </HpSectionDesc>
+
+        <div className="mt-5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">
+            In the room · {players.length}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {players.map(p => {
+              const isMe = p.deviceId === deviceId;
+              const isHostP = p.deviceId === state.hostDeviceId;
+              return (
+                <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[64px] shrink-0">
+                  <div className="relative">
+                    <Avatar name={p.name} size={42} dim={p.online === false} />
+                    {isHostP && (
+                      <div
+                        className="absolute -top-1 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
+                        style={{ background: "var(--hp-gold)", color: "#08080C" }}
+                      >★</div>
+                    )}
+                  </div>
+                  <div
+                    className={cx("text-[11px] truncate max-w-[64px] font-medium", isMe ? "" : "text-white/75")}
+                    style={isMe ? { color: "var(--hp-gold)" } : undefined}
+                  >{p.name}</div>
+                  <div className={cx(
+                    "text-[10px] font-mono uppercase tracking-[0.12em]",
+                    p.online === false ? "text-white/25" : "text-[var(--hp-gold)]"
+                  )}>
+                    {p.online === false ? "out" : "ready"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-6 pb-2">
+          {isHost ? (
+            <HpPrimaryBtn
+              disabled={!canStart}
+              onClick={() => dispatch({ type: "startRound", startedAtMs: Date.now() + 1500 })}
+            >
+              {canStart ? `START ${state.roundCount} ROUND${state.roundCount === 1 ? "" : "S"} →` : "LOADING SONGS…"}
+            </HpPrimaryBtn>
+          ) : (
+            <HpPanel center className="py-4">
+              <HpSectionDesc>
+                {canStart ? "Ready — waiting for host to start…" : "Loading chart tracks…"}
+              </HpSectionDesc>
+            </HpPanel>
+          )}
+        </div>
+      </div>
+    </HomeStageShell>
+  );
+}
+
+function SoloRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+  const round = state.round;
+  const tracks = state.chartTracks || [];
+  const audioRef = useRefApp(null);
+  const [now, setNow] = useStateApp(Date.now());
+  const [playing, setPlaying] = useStateApp(false);
+  const [audioError, setAudioError] = useStateApp(false);
+
+  const correct = round ? tracks.find(t => t.deezerId === round.correctId) : null;
+  const choices = round ? round.choiceIds.map(id => tracks.find(t => t.deezerId === id)).filter(Boolean) : [];
+
+  useEffectApp(() => {
+    const id = setInterval(() => setNow(Date.now()), 120);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffectApp(() => {
+    setAudioError(false);
+    setPlaying(false);
+    const a = audioRef.current;
+    if (!a || !correct || !correct.preview) return;
+    a.currentTime = 0;
+    const p = a.play();
+    if (p && p.then) p.then(() => setPlaying(true)).catch(() => setPlaying(false));
+  }, [round && round.correctId]);
+
+  useEffectApp(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onErr = () => { setAudioError(true); setPlaying(false); };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    a.addEventListener("error", onErr);
+    a.addEventListener("play", onPlay);
+    a.addEventListener("pause", onPause);
+    return () => {
+      a.removeEventListener("error", onErr);
+      a.removeEventListener("play", onPlay);
+      a.removeEventListener("pause", onPause);
+    };
+  }, []);
+
+  const msLeft = round ? Math.max(0, round.endsAtMs - now) : 0;
+  const progress = round ? Math.max(0, Math.min(1, (now - round.startedAtMs) / 30000)) : 0;
+  const secondsLeft = Math.ceil(msLeft / 1000);
+
+  const onlinePlayers = (state.players || []).filter(p => p.online !== false).map(p => p.deviceId);
+  const answersThisRound = state.answers && state.answers[state.roundIdx] ? state.answers[state.roundIdx] : {};
+  const everyoneAnswered = onlinePlayers.length > 0 && onlinePlayers.every(id => answersThisRound[id]);
+
+  useEffectApp(() => {
+    if (!isHost) return;
+    if (state.phase !== "round") return;
+    if (!round) return;
+    if (everyoneAnswered || now >= round.endsAtMs) {
+      dispatch({ type: "revealRound" });
+    }
+  }, [isHost, state.phase, round, everyoneAnswered, now, dispatch]);
+
+  if (!round || !correct) return null;
+
+  const submit = (choiceId) => {
+    dispatch({ type: "submitAnswer", choiceId, answeredAtMs: Date.now() });
+  };
+
+  const myAnswer = answersThisRound[deviceId];
+  const lockedCount = Object.keys(answersThisRound).length;
+
+  return (
+    <HomeStageShell>
+      <HomeHeader
+        subtitle="Round in play"
+        onBack={onLeave}
+        backLabel="Leave game"
+        right={
+          <div className="text-right shrink-0">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Round</div>
+            <div className="font-display text-[22px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>
+              {state.roundIdx + 1}<span className="text-white/35">/{state.roundCount}</span>
+            </div>
+          </div>
+        }
+      />
+
+      <div className="px-6 mt-2 flex-1 pb-28">
+        <HpPanel className="p-5 overflow-hidden">
+          <div className="flex flex-col items-center">
+            <div className="relative grid place-items-center" style={{ width: 168, height: 168 }}>
+              <div className="absolute inset-0"><TimerRing progress={progress} gold /></div>
+              <div className={cx("w-[120px] h-[120px] rounded-full overflow-hidden border-2 border-[var(--hp-gold)]/40 grid place-items-center relative spin-slow", !playing && "spin-paused")}>
+                <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, #000 0 18%, #282828 18.5% 60%, #181818 60.5% 100%)" }}></div>
+                <div className="relative w-6 h-6 rounded-full bg-[var(--hp-gold)]"></div>
+              </div>
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-white/15 font-mono text-[11px] tabular text-white/60">
+                0:{String(Math.max(0, secondsLeft)).padStart(2, "0")}
+              </div>
+            </div>
+            <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
+            <div className="mt-1 font-display text-[22px] leading-tight text-center px-4 tracking-[0.02em]">
+              Name that tune
+            </div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 text-center px-4">
+              No title · no artist · no cover
+            </div>
+            {audioError && (
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 text-center">
+                Preview unavailable — pick your best guess
+              </div>
+            )}
+          </div>
+          {correct.preview && <audio ref={audioRef} src={correct.preview} preload="auto" />}
+        </HpPanel>
+
+        <div className="mt-5">
+          <div className="flex items-baseline justify-between">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
+              {myAnswer ? "Locked in" : "Which song is it?"}
+            </div>
+            <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{lockedCount}/{onlinePlayers.length} locked in</div>
+          </div>
+
+          <HpPanel className="mt-4 p-3 min-h-[180px]">
+            {myAnswer ? (
+              <div className="text-center py-6">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
+                  You locked in
+                </div>
+                <div className="font-display text-[20px] tracking-[0.02em] px-4 truncate">
+                  {choices.find(c => c.deezerId === myAnswer.choiceId)?.title || "—"}
+                </div>
+                <HpSectionDesc>Waiting for {onlinePlayers.length - lockedCount} more…</HpSectionDesc>
+              </div>
+            ) : (
+              <>
+                <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                  Tap the track you think you heard
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {choices.map((t) => (
+                    <button
+                      key={t.deezerId}
+                      type="button"
+                      onClick={() => submit(t.deezerId)}
+                      className="rounded-xl px-3 py-3 text-sm font-medium border text-left transition bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
+                    >
+                      <div className="truncate">{t.title}</div>
+                      <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/45 truncate">{t.artist}</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </HpPanel>
+        </div>
+      </div>
+      <RoundReactionBar variant="cinematic" />
+    </HomeStageShell>
+  );
+}
+
+function SoloResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+  const tracks = state.chartTracks || [];
+  const round = state.round;
+  const correct = round ? tracks.find(t => t.deezerId === round.correctId) : null;
+  const answersThisRound = state.answers && state.answers[state.roundIdx] ? state.answers[state.roundIdx] : {};
+
+  useEffectApp(() => {
+    if (!isHost) return;
+    if (state.phase !== "results") return;
+    const t = setTimeout(() => {
+      if (state.roundIdx + 1 >= state.roundCount) {
+        dispatch({ type: "nextRound" });
+        return;
+      }
+      dispatch({ type: "nextRound" });
+      dispatch({ type: "startRound", startedAtMs: Date.now() + 1800 });
+    }, 4200);
+    return () => clearTimeout(t);
+  }, [isHost, state.phase, state.roundIdx, state.roundCount, dispatch]);
+
+  const sorted = [...(state.players || [])]
+    .map(p => ({
+      deviceId: p.deviceId,
+      name: p.name,
+      points: (answersThisRound[p.deviceId] && answersThisRound[p.deviceId].points) || 0,
+      correct: (answersThisRound[p.deviceId] && answersThisRound[p.deviceId].correct) || false,
+      total: state.scores[p.deviceId] || 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const topScore = sorted[0]?.total ?? 0;
+
+  return (
+    <HomeStageShell>
+      <HomeHeader subtitle="Reveal" onBack={onLeave} backLabel="Leave game" />
+      <div className="flex-1 pb-6">
+        <div className="px-6 mt-2">
+          <HpSectionTitle>
+            IT WAS <span style={{ color: "var(--hp-gold)" }}>{correct ? correct.title.toUpperCase() : "—"}</span>
+          </HpSectionTitle>
+          {correct && (
+            <HpSectionDesc>{correct.artist}</HpSectionDesc>
+          )}
+        </div>
+
+        <div className="mt-6 px-6">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">This round</div>
+          <div className="mt-3 space-y-2">
+            {sorted.map(row => (
+              <div key={row.deviceId} className={cx(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
+                row.correct ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35"
+              )}>
+                <Avatar name={row.name} size={28} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium truncate">
+                    {row.name}
+                    {row.deviceId === deviceId && (
+                      <span className="ml-1 text-[10px]" style={{ color: "var(--hp-gold)" }}>you</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-white/40 font-mono tabular">
+                    {row.correct ? "correct" : "wrong"}
+                  </div>
+                </div>
+                <div
+                  className="text-[12px] font-semibold px-2 py-1 rounded-full tabular"
+                  style={row.points > 0 ? { color: "var(--hp-gold)", background: "rgba(245,197,24,0.15)" } : { background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.35)" }}
+                >
+                  {row.points > 0 ? `+${row.points}` : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 px-6">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">Leaderboard</div>
+          <div className="mt-3 overflow-hidden rounded-2xl border border-white/12 bg-black/40 backdrop-blur-sm">
+            {sorted.map((row, i) => (
+              <div key={row.deviceId} className={cx(
+                "flex items-center gap-3 px-4 py-3 border-b border-white/10 last:border-b-0",
+                row.total === topScore && topScore > 0 && "bg-[var(--hp-gold)]/10"
+              )}>
+                <div className="w-5 text-xs font-mono text-white/40 tabular">{i + 1}</div>
+                <Avatar name={row.name} size={26} />
+                <div className="text-sm font-medium flex-1 truncate">
+                  {row.name}
+                  {row.deviceId === deviceId && (
+                    <span className="ml-1 text-[10px]" style={{ color: "var(--hp-gold)" }}>you</span>
+                  )}
+                </div>
+                {row.points > 0 && (
+                  <div className="text-[11px] font-mono tabular" style={{ color: "var(--hp-gold)" }}>+{row.points}</div>
+                )}
+                <div className="text-sm font-mono tabular w-7 text-right">{row.total}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-6 pt-6 pb-10">
+          {isHost ? (
+            <HpPrimaryBtn disabled>
+              {state.roundIdx + 1 >= state.roundCount ? "FINAL SCORES SOON…" : "NEXT ROUND SOON…"}
+            </HpPrimaryBtn>
+          ) : (
+            <div className="w-full rounded-xl py-4 text-center border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]">
+              Waiting for host to advance…
+            </div>
+          )}
+        </div>
+      </div>
+    </HomeStageShell>
+  );
+}
+
+function SoloFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+  const sorted = [...(state.players || [])]
+    .map(p => ({ deviceId: p.deviceId, name: p.name, score: state.scores[p.deviceId] || 0 }))
+    .sort((a, b) => b.score - a.score);
+  const winnerScore = sorted[0]?.score ?? 0;
+  const winners = sorted.filter(s => s.score === winnerScore && winnerScore > 0);
+
+  const playAgain = () => {
+    dispatch({ type: "resetGame", seed: (Math.random() * 0xffffffff) >>> 0 });
+    dispatch({ type: "startRound", startedAtMs: Date.now() + 1800 });
+  };
+
+  return (
+    <HomeStageShell>
+      <HomeHeader subtitle="Final score" onBack={onLeave} backLabel="Leave game" />
+      <div className="relative z-10 flex-1 pb-10">
+        <div className="mx-6 mt-2">
+          <HpPanel className="p-6">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>
+              {winners.length > 1 ? "It's a tie" : "Winner"}
+            </div>
+            <div className="mt-2 font-display leading-[0.9] tracking-[0.02em]" style={{ fontSize: "clamp(36px, 10vw, 52px)", color: "var(--hp-gold)" }}>
+              {(winners[0] || sorted[0])?.name || "—"}
+            </div>
+            {winners.length > 1 && (
+              <HpSectionDesc>{winners.map(w => w.name).join(" · ")}</HpSectionDesc>
+            )}
+          </HpPanel>
+        </div>
+
+        <div className="mt-6 px-6">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">All standings</div>
+          <div className="mt-3 space-y-2">
+            {sorted.map((row, i) => {
+              const isWinner = row.score === winnerScore && winnerScore > 0;
+              return (
+                <div key={row.deviceId} className={cx(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
+                  isWinner ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35"
+                )}>
+                  <div className={cx(
+                    "w-7 h-7 rounded-full grid place-items-center text-xs font-semibold tabular",
+                    i === 0 ? "bg-[var(--hp-gold)]/20 text-[var(--hp-gold)]" : "bg-black/40 text-white/55"
+                  )}>{i + 1}</div>
+                  <Avatar name={row.name} size={26} />
+                  <div className="text-sm font-medium flex-1 truncate">
+                    {row.name}
+                    {row.deviceId === deviceId && (
+                      <span className="ml-1 text-[10px]" style={{ color: "var(--hp-gold)" }}>you</span>
+                    )}
+                  </div>
+                  <div className="text-sm font-mono tabular">{row.score}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="px-6 pt-8 pb-4">
+          {isHost ? (
+            <HpGoldBtn onClick={playAgain}>PLAY AGAIN →</HpGoldBtn>
+          ) : (
+            <div className="w-full rounded-xl py-4 text-center border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]">
+              Waiting for host to start a new game…
+            </div>
+          )}
+        </div>
+        <div className="px-6">
+          <HpMutedBtn onClick={onLeave}>LEAVE</HpMutedBtn>
+        </div>
+      </div>
+    </HomeStageShell>
+  );
+}
+
+function SoloShowdownView({ choice, onReset }) {
+  const mode = useMemoApp(
+    () => ({ roomId: choice.roomId, roundCount: choice.roundCount, seed: choice.seed }),
+    [choice.roomId, choice.roundCount, choice.seed]
+  );
+  const { deviceId, state, dispatch, status, isHost } = useSoloSession(mode, choice.name);
+
+  if (status.kind !== "ready") {
+    return <ConnectionGate status={status} mode={{ kind: "solo", code: choice.roomId }} onReset={onReset} />;
+  }
+
+  const common = { state, dispatch, isHost, deviceId, onLeave: onReset };
+  if (state.phase === "lobby") return <SoloLobbyScreen {...common} />;
+  if (state.phase === "round") return <SoloRoundScreen {...common} />;
+  if (state.phase === "results") return <SoloResultsScreen {...common} />;
+  if (state.phase === "final") return <SoloFinalScreen {...common} />;
+  return null;
 }
 
 // ---------- RoomChip ----------
@@ -2553,547 +3115,11 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
   );
 }
 
-// ---------- LocalLobbyScreen — turn-based pass-around add ----------
-function LocalLobbyScreen({ state, dispatch, onLeave }) {
-  const lastPlayer = state.players[state.players.length - 1] || null;
-  const [step, setStep] = useStateApp(() => {
-    if (state.players.length > 0 && state.playerCount && state.players.length >= state.playerCount) return "pool";
-    if (state.players.length > 0) return "songs";
-    if (state.songsPerPlayer && state.playerCount) return "name";
-    if (state.songsPerPlayer) return "name";
-    return "rounds";
-  });
-  const [currentId, setCurrentId] = useStateApp(lastPlayer ? lastPlayer.deviceId : null);
-  const [name, setName] = useStateApp("");
-  const [err, setErr] = useStateApp("");
-  const [songSearchOpen, setSongSearchOpen] = useStateApp(false);
-  const [roundPick, setRoundPick] = useStateApp(Math.min(state.songsPerPlayer || 3, 5));
-  const [playerPick, setPlayerPick] = useStateApp(state.playerCount || 3);
-
-  const songsPerPlayer = state.songsPerPlayer || 1;
-  const playerTarget = state.playerCount || 3;
-  const currentPlayer = state.players.find(p => p.deviceId === currentId) || null;
-  const poolTarget = playerTarget * songsPerPlayer;
-  const playersReady = state.players.length >= playerTarget && state.players.every(p =>
-    state.songs.filter(s => s.ownerDeviceId === p.deviceId).length >= songsPerPlayer
-  );
-  const rosterFull = state.players.length >= playerTarget;
-  const canStart = state.songsPerPlayer && playersReady;
-  const currentSongs = currentPlayer ? state.songs.filter(s => s.ownerDeviceId === currentPlayer.deviceId) : [];
-  const currentSongSlotsLeft = Math.max(0, songsPerPlayer - currentSongs.length);
-  const atSongLimit = currentSongs.length >= songsPerPlayer;
-
-  const submitName = () => {
-    setErr("");
-    const n = name.trim();
-    if (!n) return setErr("Add a name.");
-    if (state.players.some(p => p.name.toLowerCase() === n.toLowerCase())) {
-      return setErr("Someone in the room already has that name.");
-    }
-    if (rosterFull) {
-      return setErr(`All ${playerTarget} players are already in.`);
-    }
-    const newId = newDeviceId();
-    dispatch({ type: "join", deviceId: newId, name: n });
-    setCurrentId(newId);
-    setName("");
-    setSongSearchOpen(false);
-    setStep("songs");
-  };
-
-  const addSongFromSearch = async (song) => {
-    if (!currentPlayer) return;
-    if (atSongLimit) {
-      setErr(`You already added ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"}.`);
-      return;
-    }
-    const key = (song.title + "|" + song.artist).toLowerCase();
-    const mine = state.songs.filter(s => s.ownerDeviceId === currentPlayer.deviceId);
-    if (mine.some(s => (s.title + "|" + s.artist).toLowerCase() === key)) {
-      setErr("You already added that song.");
-      return;
-    }
-    setErr("");
-    dispatch({
-      type: "addSong",
-      ownerDeviceId: currentPlayer.deviceId,
-      title: song.title,
-      artist: song.artist,
-      url: song.url,
-      cover: song.cover,
-      noPreview: song.noPreview,
-    });
-    setSongSearchOpen(false);
-  };
-
-  useEffectApp(() => {
-    if (step === "songs" && atSongLimit) setSongSearchOpen(false);
-  }, [step, atSongLimit]);
-
-  useEffectApp(() => {
-    if (step === "songs" && !currentPlayer) {
-      setStep(state.players.length === 0 ? "rounds" : "name");
-    }
-  }, [step, currentPlayer, state.players.length]);
-
-  const confirmRounds = () => {
-    dispatch({ type: "setSongsPerPlayer", count: roundPick });
-    dispatch({ type: "setPlayerCount", count: playerPick });
-    setStep("name");
-    setErr("");
-  };
-
-  const passDevice = () => {
-    if (!atSongLimit) {
-      setErr(`Add ${currentSongSlotsLeft} more song${currentSongSlotsLeft === 1 ? "" : "s"} before passing.`);
-      return;
-    }
-    setErr("");
-    setSongSearchOpen(false);
-    setStep("pass");
-  };
-  const startNextPlayer = () => {
-    setCurrentId(null);
-    setName("");
-    setErr("");
-    setSongSearchOpen(false);
-    if (state.players.length >= playerTarget) {
-      setStep("pool");
-      return;
-    }
-    setStep("name");
-  };
-
-  const start = () => {
-    if (!canStart) return;
-    dispatch({ type: "start" });
-  };
-
-  return (
-    <HomeStageShell>
-      <HomeHeader
-        subtitle={
-          state.songsPerPlayer
-            ? `Pass-around · ${state.players.length}/${playerTarget} players · ${state.songsPerPlayer} round${state.songsPerPlayer === 1 ? "" : "s"} each`
-            : `Pass-around · set up your game`
-        }
-        onBack={onLeave}
-        backLabel="Leave"
-      />
-
-      <div className="px-6 mt-4 flex-1">
-        <HpSectionTitle>
-          {step === "rounds" && <>GAME <span style={{ color: "var(--hp-gold)" }}>SETUP</span></>}
-          {step === "name" && <>PLAYER <span style={{ color: "var(--hp-gold)" }}>{state.players.length + 1}</span> OF <span style={{ color: "var(--hp-magenta)" }}>{playerTarget}</span></>}
-          {step === "pool" && <>ALL <span style={{ color: "var(--hp-gold)" }}>PLAYERS</span> IN</>}
-          {step === "songs" && currentPlayer && (
-            <>HEY, <span style={{ color: "var(--hp-magenta)" }}>{currentPlayer.name.toUpperCase()}</span></>
-          )}
-          {step === "pass" && <>PASS THE <span style={{ color: "var(--hp-gold)" }}>PHONE</span></>}
-        </HpSectionTitle>
-        <HpSectionDesc>
-          {step === "rounds" && "Choose how many rounds (songs per player) and how many people are playing."}
-          {step === "name" && "Type your name, then add your songs when it's your turn."}
-          {step === "pool" && "Everyone's registered. Finish adding songs, then start the game."}
-          {step === "songs" && (
-            <>Add <span style={{ color: "var(--hp-gold)" }}>{songsPerPlayer}</span> song{songsPerPlayer === 1 ? "" : "s"} — then pass the phone.</>
-          )}
-          {step === "pass" && "No peeking — hand the device over, then they tap to continue."}
-        </HpSectionDesc>
-
-        {state.players.length > 0 && step !== "songs" && step !== "rounds" && (
-          <div className="mt-5">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">Added so far</div>
-            <div className="flex flex-wrap gap-2">
-              {state.players.map(p => {
-                const cnt = state.songs.filter(s => s.ownerDeviceId === p.deviceId).length;
-                return (
-                  <div key={p.deviceId} className="flex items-center gap-2 rounded-full px-2.5 py-1 border border-white/15 bg-black/35">
-                    <Avatar name={p.name} size={20} />
-                    <span className="text-[12px] font-medium">{p.name}</span>
-                    <span className="text-[11px] font-mono text-[var(--hp-gold)] tabular">{cnt}/{songsPerPlayer}♪</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {step === "rounds" && (
-          <div className="mt-6 space-y-4">
-            <RoundsPicker value={roundPick} onChange={setRoundPick} />
-            <PlayerCountSlider value={playerPick} onChange={setPlayerPick} />
-            <HpGoldBtn onClick={confirmRounds}>
-              LOCK IN · {playerPick} PLAYERS · {roundPick} ROUND{roundPick === 1 ? "" : "S"} →
-            </HpGoldBtn>
-          </div>
-        )}
-
-        {step === "name" && (
-          <div className="mt-6 space-y-3">
-            <HpPanel>
-              <HpField label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
-              {err && <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{err}</div>}
-            </HpPanel>
-            <HpPrimaryBtn disabled={!name.trim()} onClick={submitName}>I'M IN →</HpPrimaryBtn>
-          </div>
-        )}
-
-        {step === "songs" && currentPlayer && (
-          <>
-            {currentSongs.length > 0 && !songSearchOpen && (
-              <div className="mt-4">
-                <div className="rounded-2xl border border-white/14 bg-[#16161e] p-3 space-y-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40 mb-2 px-1">Your picks</div>
-                  {currentSongs.map(s => (
-                    <div key={s.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#22222c] px-3 py-2">
-                      {s.cover ? (
-                        <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover border border-white/10" />
-                      ) : (
-                        <div className="w-9 h-9 rounded-md bg-black/50 border border-white/10"></div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm truncate font-medium">{s.title}</div>
-                        <div className="text-[11px] text-white/50 truncate">
-                          {s.artist}{s.noPreview && <span className="ml-1.5 text-white/35">· no preview</span>}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => dispatch({ type: "removeSong", songId: s.id })}
-                        className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40 hover:text-[var(--hp-magenta)] px-2 py-1"
-                      >remove</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {!atSongLimit && (
-              <div className="song-suggest-shell mt-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--hp-magenta)] mb-2">
-                  Song {currentSongs.length + 1} of {songsPerPlayer}
-                </div>
-                <SongSearchPicker
-                  variant="home"
-                  autoFocus
-                  error={err}
-                  onClearError={() => setErr("")}
-                  onOpenChange={setSongSearchOpen}
-                  onAdd={addSongFromSearch}
-                />
-              </div>
-            )}
-
-            {atSongLimit && !songSearchOpen && (
-              <div className="mt-4 rounded-2xl border border-[var(--hp-neon)]/30 bg-[var(--hp-neon)]/10 px-4 py-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--hp-neon)]">
-                All {songsPerPlayer} song{songsPerPlayer === 1 ? "" : "s"} added — pass the phone
-              </div>
-            )}
-
-            {(atSongLimit || !songSearchOpen) && (
-              <div className="mt-4">
-                {err && !atSongLimit && (
-                  <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{err}</div>
-                )}
-                <HpMutedBtn disabled={!atSongLimit} onClick={passDevice}>
-                  PASS TO NEXT PLAYER →
-                </HpMutedBtn>
-              </div>
-            )}
-          </>
-        )}
-
-        {step === "pass" && (
-          <div className="mt-6">
-            <HpPanel center className="py-6">
-              <div className="font-display text-[56px] leading-none" style={{ color: "var(--hp-gold)" }}>♪</div>
-              {rosterFull ? (
-                <HpSectionDesc>All {playerTarget} players are in. Check the song pool below and start when ready.</HpSectionDesc>
-              ) : (
-                <HpSectionDesc>Hand the phone to the next player ({state.players.length + 1} of {playerTarget}).</HpSectionDesc>
-              )}
-              <div className="mt-4">
-                <HpGoldBtn onClick={startNextPlayer}>
-                  {rosterFull ? "GOT IT →" : "I'M THE NEXT PLAYER →"}
-                </HpGoldBtn>
-              </div>
-            </HpPanel>
-          </div>
-        )}
-
-        {step === "pool" && (
-          <div className="mt-6">
-            <HpPanel center className="py-5">
-              <HpSectionDesc>
-                {state.players.length} players · {state.songs.length}/{poolTarget} songs in the pool
-              </HpSectionDesc>
-            </HpPanel>
-          </div>
-        )}
-
-        {!(step === "songs" && songSearchOpen && !atSongLimit) && (
-          <>
-            <div className="mt-6">
-              <PoolCounter count={state.songs.length} target={poolTarget} variant="home" />
-            </div>
-
-            <div className="mt-6 pb-4">
-              <HpPrimaryBtn disabled={!canStart} onClick={start}>
-                {canStart
-                  ? `START ${state.songs.length} ROUND${state.songs.length === 1 ? "" : "S"} →`
-                  : state.players.length < playerTarget
-                    ? `NEED ${playerTarget - state.players.length} MORE PLAYER${playerTarget - state.players.length === 1 ? "" : "S"} (${state.players.length}/${playerTarget})`
-                    : `NEED ${poolTarget - state.songs.length} MORE SONG${poolTarget - state.songs.length === 1 ? "" : "S"} (${state.songs.length}/${poolTarget})`}
-              </HpPrimaryBtn>
-            </div>
-          </>
-        )}
-      </div>
-    </HomeStageShell>
-  );
-}
-
-// ---------- LocalRoundScreen — pass-around guessing ----------
-function LocalRoundScreen({ state, dispatch, onLeave }) {
-  const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
-  const audioRef = useRefApp(null);
-  const [progress, setProgress] = useStateApp(0);
-  const [duration, setDuration] = useStateApp(30);
-  const [playing, setPlaying] = useStateApp(false);
-  const [audioError, setAudioError] = useStateApp(false);
-  useEffectApp(() => {
-    setProgress(0);
-    setAudioError(!song || song.noPreview || !song.url);
-    const a = audioRef.current;
-    if (!a || !song || !song.url) return;
-    a.currentTime = 0;
-    const tryPlay = a.play();
-    if (tryPlay && tryPlay.then) {
-      tryPlay.then(() => setPlaying(true)).catch(() => setPlaying(false));
-    }
-  }, [song && song.id]);
-
-  useEffectApp(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    const onTime = () => {
-      if (a.duration && isFinite(a.duration)) {
-        setDuration(a.duration);
-        setProgress(Math.min(1, a.currentTime / a.duration));
-      } else {
-        setProgress(Math.min(1, a.currentTime / 30));
-      }
-    };
-    const onErr = () => { setAudioError(true); setPlaying(false); };
-    const onPlay = () => { setPlaying(true); setAudioError(false); };
-    const onPause = () => setPlaying(false);
-    const onEnd = () => { setPlaying(false); setProgress(1); };
-    a.addEventListener("timeupdate", onTime);
-    a.addEventListener("error", onErr);
-    a.addEventListener("play", onPlay);
-    a.addEventListener("pause", onPause);
-    a.addEventListener("ended", onEnd);
-    return () => {
-      a.removeEventListener("timeupdate", onTime);
-      a.removeEventListener("error", onErr);
-      a.removeEventListener("play", onPlay);
-      a.removeEventListener("pause", onPause);
-      a.removeEventListener("ended", onEnd);
-    };
-  }, []);
-
-  const voteOrder = state.players.map(p => p.deviceId);
-  const currentVoterId = voteOrder.find(id => state.guesses[id] == null) || null;
-  const votersLocked = voteOrder.filter(id => state.guesses[id] != null).length;
-
-  useAutoRevealWhenAllVoted(song, voteOrder, state.guesses, dispatch, audioRef, setPlaying);
-
-  if (!song) return null;
-
-  const togglePlay = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (a.paused) {
-      const p = a.play();
-      if (p && p.catch) p.catch(() => setAudioError(true));
-    } else { a.pause(); }
-  };
-
-  const activePlayer = currentVoterId ? state.players.find(p => p.deviceId === currentVoterId) : null;
-  const activeGuess = currentVoterId ? state.guesses[currentVoterId] : null;
-
-  const pickTarget = (targetId) => {
-    if (!currentVoterId || activeGuess) return;
-    dispatch({
-      type: "submitGuess",
-      deviceId: currentVoterId,
-      targetDeviceId: targetId,
-      now: performance.now(),
-    });
-  };
-
-  const secondsLeft = Math.max(0, Math.ceil((1 - progress) * (duration || 30)));
-
-  return (
-    <HomeStageShell>
-      <HomeHeader
-        subtitle="Round in play · pass-around"
-        onBack={onLeave}
-        backLabel="Leave game"
-        right={
-          <div className="text-right shrink-0">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Round</div>
-            <div className="font-display text-[22px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>
-              {state.roundIdx + 1}<span className="text-white/35">/{state.order.length}</span>
-            </div>
-          </div>
-        }
-      />
-
-      <div className="px-6 mt-2 flex-1">
-        <HpPanel className="p-5 overflow-hidden">
-          <div className="flex flex-col items-center">
-            <div className="relative grid place-items-center" style={{ width: 168, height: 168 }}>
-              <div className="absolute inset-0"><TimerRing progress={progress} gold /></div>
-              <div className={cx("w-[120px] h-[120px] rounded-full overflow-hidden border-2 border-[var(--hp-gold)]/40 grid place-items-center relative spin-slow", !playing && "spin-paused")}>
-                {song.cover ? (
-                  <>
-                    <img src={song.cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                    <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, rgba(0,0,0,0.85) 0 14%, transparent 14.5% 60%, rgba(0,0,0,0.55) 60.5% 100%)" }}></div>
-                  </>
-                ) : (
-                  <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, #000 0 18%, #282828 18.5% 60%, #181818 60.5% 100%)" }}></div>
-                )}
-                <div className="relative w-6 h-6 rounded-full bg-[var(--hp-gold)]"></div>
-              </div>
-              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-white/15 font-mono text-[11px] tabular text-white/60">
-                0:{secondsLeft.toString().padStart(2, "0")}
-              </div>
-            </div>
-
-            <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
-            <div className="mt-1 font-display text-[22px] leading-tight text-center px-4 truncate w-full tracking-[0.02em]">{song.title}</div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 text-center truncate w-full px-4">{song.artist}</div>
-
-            <div className="mt-3 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
-              {playing ? (
-                <div className="flex items-end gap-[2px] h-3">
-                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)" }}></div>
-                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)", animationDelay: "120ms" }}></div>
-                  <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)", animationDelay: "240ms" }}></div>
-                </div>
-              ) : <div className="w-2 h-2 rounded-full bg-white/30"></div>}
-              <button onClick={togglePlay} disabled={!song.url} className={cx("hover:text-[var(--hp-gold)] transition", !song.url && "opacity-30 cursor-not-allowed")}>
-                {playing ? "pause" : "play"}
-              </button>
-            </div>
-            {audioError && (
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 text-center">
-                Preview unavailable — guess from title & artist
-              </div>
-            )}
-          </div>
-          {song.url && <audio ref={audioRef} src={song.url} preload="auto" />}
-        </HpPanel>
-
-        <div className="mt-5">
-          <div className="flex items-baseline justify-between">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Voting in order — one at a time</div>
-            <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{votersLocked}/{voteOrder.length} voted</div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {state.players.map(p => {
-              const locked = state.guesses[p.deviceId] != null;
-              const isTurn = currentVoterId === p.deviceId;
-              return (
-                <div
-                  key={p.deviceId}
-                  className={cx(
-                    "px-2.5 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5",
-                    isTurn
-                      ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
-                      : locked
-                        ? "bg-black/40 border-[var(--hp-neon)]/40 text-[var(--hp-neon)]"
-                        : "bg-black/35 border-white/15 text-white/50"
-                  )}
-                >
-                  <Avatar name={p.name} size={18} />
-                  <span>{p.name}</span>
-                  {locked && <span>✓</span>}
-                  {isTurn && !locked && <span className="font-mono text-[9px] uppercase tracking-[0.1em]">now</span>}
-                </div>
-              );
-            })}
-          </div>
-
-          <HpPanel className="mt-4 p-3 min-h-[180px]">
-            {!activePlayer ? (
-              <div className="text-center font-mono text-[11px] uppercase tracking-[0.18em] text-white/40 py-10">
-                Everyone's voted — revealing…
-              </div>
-            ) : activeGuess ? (
-              <div className="text-center py-6">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
-                  {activePlayer.name} locked in
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                  <Avatar name={state.players.find(p => p.deviceId === activeGuess)?.name} size={32} />
-                  <div className="font-display text-[22px] tracking-[0.04em]">
-                    {state.players.find(p => p.deviceId === activeGuess)?.name}
-                  </div>
-                </div>
-                <HpSectionDesc>Pass the phone — next player's turn.</HpSectionDesc>
-              </div>
-            ) : (
-              <>
-                <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                  Pass the phone to <span style={{ color: "var(--hp-magenta)" }}>{activePlayer.name}</span>
-                </div>
-                <div className="px-2 pt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Who submitted this track? · you can vote for yourself
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {state.players.map(p => {
-                    const isSelf = p.deviceId === currentVoterId;
-                    return (
-                      <button
-                        key={p.deviceId}
-                        onClick={() => pickTarget(p.deviceId)}
-                        className={cx(
-                          "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
-                          isSelf
-                            ? "bg-[var(--hp-magenta)]/15 border-[var(--hp-magenta)]/40 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
-                            : "bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
-                        )}
-                      >
-                        <Avatar name={p.name} size={26} />
-                        <div className="min-w-0">
-                          <div className="truncate">{p.name}</div>
-                          {isSelf && (
-                            <div className="font-mono text-[9px] uppercase text-[var(--hp-gold)]">that's you</div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </HpPanel>
-        </div>
-
-        <div className="pt-6 pb-28 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
-          Reveal when everyone has voted
-        </div>
-      </div>
-      <RoundReactionBar variant="cinematic" />
-    </HomeStageShell>
-  );
-}
+// (single-device / pass-around mode removed)
 
 // ---------- GameView (after start screen, with session) ----------
 function GameView({ choice, onReset }) {
+  if (choice.game !== "beat") return null;
   const mode = useMemoApp(
     () => ({ kind: choice.kind, code: choice.code, songsPerPlayer: choice.songsPerPlayer }),
     [choice.kind, choice.code, choice.songsPerPlayer]
@@ -3110,7 +3136,6 @@ function GameView({ choice, onReset }) {
     return <ConnectionGate status={status} mode={mode} onReset={onReset} />;
   }
 
-  const isLocal = mode.kind === "local";
   const common = {
     state, dispatch, deviceId, isHost,
     code: choice.code, mode, onLeave: onReset,
@@ -3119,9 +3144,7 @@ function GameView({ choice, onReset }) {
   return (
     <>
       {state.phase === "lobby" && (
-        isLocal
-          ? <LocalLobbyScreen {...common} />
-          : <LobbyScreen {...common} />
+        <LobbyScreen {...common} />
       )}
       {state.phase === "splash" && (
         <SplashScreen
@@ -3133,9 +3156,7 @@ function GameView({ choice, onReset }) {
         />
       )}
       {state.phase === "round" && (
-        isLocal
-          ? <LocalRoundScreen {...common} />
-          : <RoundScreen {...common} />
+        <RoundScreen {...common} />
       )}
       {state.phase === "results" && <ResultsScreen {...common} cinematic />}
       {state.phase === "final" && <FinalScreen {...common} cinematic />}
@@ -3151,10 +3172,9 @@ function App() {
     <div className="shell">
       {!choice && <StartScreen onChoose={setChoice} />}
       {choice && (
-        <GameView
-          choice={choice}
-          onReset={() => setChoice(null)}
-        />
+        choice.game === "solo"
+          ? <SoloShowdownView choice={choice} onReset={() => setChoice(null)} />
+          : <GameView choice={choice} onReset={() => setChoice(null)} />
       )}
     </div>
   );
