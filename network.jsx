@@ -419,10 +419,10 @@ function useSession(mode, displayName) {
   };
 }
 
-// ---------------- Flip Mode (separate session + reducer) ----------------
+// ---------------- Blitz Mode (separate session + reducer) ----------------
 
-const FLIP_PEER_PREFIX = "flip-mode-v1-";
-const SOLO_PEER_PREFIX = FLIP_PEER_PREFIX;
+const BLITZ_PEER_PREFIX = "blitz-mode-v1-";
+const SOLO_PEER_PREFIX = BLITZ_PEER_PREFIX;
 
 function hashStringToSeed(str) {
   // FNV-1a 32-bit
@@ -473,40 +473,121 @@ function deezerJsonp(url) {
 }
 
 async function fetchDeezerChartTracks() {
-  const res = await deezerJsonp("https://api.deezer.com/chart/0/tracks");
-  const raw = (res && res.data) ? res.data : [];
-  return raw
-    .map((t) => {
-      if (!t || !t.id) return null;
+  const PAGE_SIZE = 50;
+  const PAGE_COUNT = 6;
+  const pages = await Promise.all(
+    Array.from({ length: PAGE_COUNT }, (_, i) =>
+      deezerJsonp(`https://api.deezer.com/chart/0/tracks?limit=${PAGE_SIZE}&index=${i * PAGE_SIZE}`)
+        .catch(() => null)
+    )
+  );
+  const seen = new Set();
+  const tracks = [];
+  for (const res of pages) {
+    const raw = (res && res.data) ? res.data : [];
+    for (const t of raw) {
+      if (!t || !t.id) continue;
+      const deezerId = String(t.id);
+      if (seen.has(deezerId)) continue;
+      seen.add(deezerId);
       const title = String(t.title_short || t.title || "").trim();
       const artist = (t.artist && t.artist.name) ? String(t.artist.name).trim() : "Unknown artist";
       const preview = t.preview ? String(t.preview) : null;
-      if (!title) return null;
-      return {
-        deezerId: String(t.id),
+      if (!title) continue;
+      tracks.push({
+        deezerId,
         title,
         artist,
         cover: (t.album && (t.album.cover_small || t.album.cover_medium || t.album.cover)) || null,
         preview,
-      };
-    })
-    .filter(Boolean);
+      });
+    }
+  }
+  return tracks;
 }
 
-function flipInitialState() {
+function blitzInitialState() {
   return {
     phase: "lobby", // lobby | round | results | final
-    hostDeviceId: null,
+    coordinatorDeviceId: null,
     players: [], // [{deviceId,name,online}]
     scores: {}, // { [deviceId]: number }
     roundIdx: 0,
     roundCount: 3,
     seed: 0,
     chartTracks: null, // [{deezerId,title,artist,cover,preview}]
+    joinWindowEndsAtMs: null,
+    startVotes: {}, // { [deviceId]: true }
+    replayVotes: {}, // { [deviceId]: true } — final screen only
     round: null, // { startedAtMs, endsAtMs, correctId, choiceIds: string[] }
     answers: {}, // { [roundIdx]: { [deviceId]: { choiceId, answeredAtMs, points, correct } } }
     lastRoundDeltas: {}, // { [deviceId]: { points, correct } }
   };
+}
+
+const BLITZ_JOIN_WINDOW_MS = 30000;
+const BLITZ_MIN_PLAYERS = 2;
+const BLITZ_MAX_PLAYERS = 5;
+
+function blitzOnlinePlayers(state) {
+  return (state.players || []).filter(p => p.online !== false);
+}
+
+function blitzCanJoinLobby(state, nowMs) {
+  if (state.phase !== "lobby") return false;
+  if (state.players.length >= BLITZ_MAX_PLAYERS) return false;
+  if (state.players.length < BLITZ_MIN_PLAYERS) return true;
+  if (!state.joinWindowEndsAtMs) return true;
+  return nowMs <= state.joinWindowEndsAtMs;
+}
+
+function blitzBuildStartRoundState(state, startedAtMs) {
+  if (!state.chartTracks || state.chartTracks.length < 8) return null;
+  const built = buildRoundFromSeed({
+    seed: state.seed,
+    roundIdx: state.roundIdx,
+    tracks: state.chartTracks,
+  });
+  if (!built) return null;
+  const { correctId, choiceIds } = built;
+  const endsAtMs = startedAtMs + 30000;
+  return {
+    ...state,
+    phase: "round",
+    round: { startedAtMs, endsAtMs, correctId, choiceIds },
+    lastRoundDeltas: {},
+    startVotes: {},
+    replayVotes: {},
+  };
+}
+
+function blitzTryStartFromVotes(state, startedAtMs) {
+  if (state.phase !== "lobby") return null;
+  const online = blitzOnlinePlayers(state);
+  if (online.length < BLITZ_MIN_PLAYERS) return null;
+  const allVoted = online.every(p => state.startVotes[p.deviceId]);
+  if (!allVoted) return null;
+  return blitzBuildStartRoundState(state, startedAtMs);
+}
+
+function blitzTryReplayFromVotes(state, startedAtMs, seed) {
+  if (state.phase !== "final") return null;
+  const online = blitzOnlinePlayers(state);
+  if (online.length < 1) return null;
+  const allVoted = online.every(p => state.replayVotes[p.deviceId]);
+  if (!allVoted) return null;
+  const cleared = Object.fromEntries(state.players.map(p => [p.deviceId, 0]));
+  const reset = {
+    ...blitzInitialState(),
+    coordinatorDeviceId: state.coordinatorDeviceId,
+    players: state.players,
+    scores: cleared,
+    roundCount: state.roundCount,
+    seed,
+    chartTracks: state.chartTracks,
+    joinWindowEndsAtMs: null,
+  };
+  return blitzBuildStartRoundState(reset, startedAtMs);
 }
 
 function pointsForMs(elapsedMs) {
@@ -528,11 +609,12 @@ function buildRoundFromSeed({ seed, roundIdx, tracks }) {
   return { correctId, choiceIds };
 }
 
-function flipReducer(state, action) {
+function blitzReducer(state, action) {
   switch (action.type) {
     case "join": {
       if (state.phase !== "lobby") return state;
       const { deviceId, name } = action;
+      const nowMs = action.nowMs || Date.now();
       const existing = state.players.find(p => p.deviceId === deviceId);
       if (existing) {
         return {
@@ -540,11 +622,18 @@ function flipReducer(state, action) {
           players: state.players.map(p => p.deviceId === deviceId ? { ...p, name: name || p.name, online: true } : p),
         };
       }
-      if (state.players.length >= 5) return state;
+      if (!blitzCanJoinLobby(state, nowMs)) return state;
+      const nextPlayers = [...state.players, { deviceId, name, online: true }];
+      let joinWindowEndsAtMs = state.joinWindowEndsAtMs;
+      if (nextPlayers.length === BLITZ_MIN_PLAYERS && !joinWindowEndsAtMs) {
+        joinWindowEndsAtMs = nowMs + BLITZ_JOIN_WINDOW_MS;
+      }
       return {
         ...state,
-        players: [...state.players, { deviceId, name, online: true }],
+        players: nextPlayers,
         scores: { ...state.scores, [deviceId]: 0 },
+        startVotes: {},
+        joinWindowEndsAtMs,
       };
     }
     case "setOnline": {
@@ -553,37 +642,66 @@ function flipReducer(state, action) {
         players: state.players.map(p => p.deviceId === action.deviceId ? { ...p, online: action.online } : p),
       };
     }
+    case "leave": {
+      if (state.phase !== "lobby") return state;
+      const { deviceId } = action;
+      if (!deviceId || deviceId === state.coordinatorDeviceId) return state;
+      const nextPlayers = state.players.filter(p => p.deviceId !== deviceId);
+      let joinWindowEndsAtMs = state.joinWindowEndsAtMs;
+      if (nextPlayers.length < BLITZ_MIN_PLAYERS) joinWindowEndsAtMs = null;
+      return {
+        ...state,
+        players: nextPlayers,
+        scores: Object.fromEntries(Object.entries(state.scores).filter(([id]) => id !== deviceId)),
+        startVotes: Object.fromEntries(Object.entries(state.startVotes).filter(([id]) => id !== deviceId)),
+        joinWindowEndsAtMs,
+      };
+    }
     case "init": {
       if (state.phase !== "lobby") return state;
       return {
         ...state,
-        hostDeviceId: action.hostDeviceId || state.hostDeviceId,
+        coordinatorDeviceId: action.coordinatorDeviceId || state.coordinatorDeviceId,
         roundCount: action.roundCount,
         seed: action.seed,
       };
     }
     case "setChart": {
       if (state.phase !== "lobby") return state;
-      return { ...state, chartTracks: action.tracks };
+      const withChart = { ...state, chartTracks: action.tracks };
+      const started = blitzTryStartFromVotes(withChart, action.startedAtMs || Date.now() + 1500);
+      return started || withChart;
+    }
+    case "voteStart": {
+      if (state.phase !== "lobby") return state;
+      const { deviceId, voted } = action;
+      const online = blitzOnlinePlayers(state);
+      if (online.length < BLITZ_MIN_PLAYERS) return state;
+      if (!online.some(p => p.deviceId === deviceId)) return state;
+      const nextVotes = { ...state.startVotes };
+      if (voted) nextVotes[deviceId] = true;
+      else delete nextVotes[deviceId];
+      const withVotes = { ...state, startVotes: nextVotes };
+      const started = blitzTryStartFromVotes(withVotes, action.startedAtMs || Date.now() + 1500);
+      return started || withVotes;
+    }
+    case "voteReplay": {
+      if (state.phase !== "final") return state;
+      const { deviceId, voted } = action;
+      const online = blitzOnlinePlayers(state);
+      if (!online.some(p => p.deviceId === deviceId)) return state;
+      const nextVotes = { ...state.replayVotes };
+      if (voted) nextVotes[deviceId] = true;
+      else delete nextVotes[deviceId];
+      const withVotes = { ...state, replayVotes: nextVotes };
+      const seed = action.seed || ((Math.random() * 0xffffffff) >>> 0);
+      const started = blitzTryReplayFromVotes(withVotes, action.startedAtMs || Date.now() + 1800, seed);
+      return started || withVotes;
     }
     case "startRound": {
       if (state.phase !== "lobby" && state.phase !== "results") return state;
-      if (!state.chartTracks || state.chartTracks.length < 8) return state;
-      const built = buildRoundFromSeed({
-        seed: state.seed,
-        roundIdx: state.roundIdx,
-        tracks: state.chartTracks,
-      });
-      if (!built) return state;
-      const { correctId, choiceIds } = built;
-      const startedAtMs = action.startedAtMs;
-      const endsAtMs = startedAtMs + 30000;
-      return {
-        ...state,
-        phase: "round",
-        round: { startedAtMs, endsAtMs, correctId, choiceIds },
-        lastRoundDeltas: {},
-      };
+      const started = blitzBuildStartRoundState(state, action.startedAtMs);
+      return started || state;
     }
     case "submitAnswer": {
       if (state.phase !== "round" || !state.round) return state;
@@ -621,11 +739,10 @@ function flipReducer(state, action) {
       };
     }
     case "resetGame": {
-      // Keep lobby + players, reset scores/rounds (host can do this)
       const cleared = Object.fromEntries(state.players.map(p => [p.deviceId, 0]));
       return {
-        ...flipInitialState(),
-        hostDeviceId: state.hostDeviceId,
+        ...blitzInitialState(),
+        coordinatorDeviceId: state.coordinatorDeviceId,
         players: state.players,
         scores: cleared,
         roundCount: state.roundCount,
@@ -639,18 +756,18 @@ function flipReducer(state, action) {
 }
 
 // mode: { roomId, roundCount, seed }
-function useFlipSession(mode, displayName) {
+function useBlitzSession(mode, displayName) {
   const myDeviceId = useRef(newDeviceId()).current;
-  const [state, setState] = useState(flipInitialState);
+  const [state, setState] = useState(blitzInitialState);
   const [status, setStatus] = useState({ kind: "idle", message: "" });
   const peerRef = useRef(null);
   const connsRef = useRef(new Map()); // host: peerId->conn ; client: "host"->conn
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const hostApply = useCallback((action) => {
+  const coordApply = useCallback((action) => {
     setState(prev => {
-      const next = flipReducer(prev, action);
+      const next = blitzReducer(prev, action);
       connsRef.current.forEach(conn => {
         try { conn.send({ type: "state", state: next }); } catch (e) {}
       });
@@ -664,7 +781,7 @@ function useFlipSession(mode, displayName) {
       return () => {};
     }
 
-    const roomPeerId = FLIP_PEER_PREFIX + mode.roomId;
+    const roomPeerId = BLITZ_PEER_PREFIX + mode.roomId;
     setStatus({ kind: "connecting", message: "Finding match…" });
 
     const hostPeer = new Peer(roomPeerId, { debug: 0 });
@@ -683,13 +800,22 @@ function useFlipSession(mode, displayName) {
         conn.on("open", () => {
           clearTimeout(timeout);
           setStatus({ kind: "ready", message: "" });
-          try { conn.send({ type: "action", action: { type: "join", name: displayName || "Player" } }); } catch (e) {}
+          try {
+            conn.send({
+              type: "action",
+              action: { type: "join", deviceId: myDeviceId, name: displayName || "Player", nowMs: Date.now() },
+            });
+          } catch (e) {}
         });
         conn.on("data", (msg) => {
           if (!msg || typeof msg !== "object") return;
+          if (msg.type === "joinRejected") {
+            setStatus({ kind: "error", message: msg.message || "Could not join this room." });
+            return;
+          }
           if (msg.type === "state") setState(msg.state);
         });
-        conn.on("close", () => setStatus({ kind: "error", message: "Match ended — host left." }));
+        conn.on("close", () => setStatus({ kind: "error", message: "Room closed." }));
         conn.on("error", () => {});
       });
       clientPeer.on("error", () => setStatus({ kind: "error", message: "Connection failed. Try again." }));
@@ -697,16 +823,17 @@ function useFlipSession(mode, displayName) {
 
     hostPeer.on("open", async () => {
       setStatus({ kind: "ready", message: "" });
-      hostApply({ type: "join", deviceId: myDeviceId, name: displayName || "Host" });
-      hostApply({
+      const nowMs = Date.now();
+      coordApply({ type: "join", deviceId: myDeviceId, name: displayName || "Player", nowMs });
+      coordApply({
         type: "init",
-        hostDeviceId: myDeviceId,
+        coordinatorDeviceId: myDeviceId,
         roundCount: mode.roundCount,
         seed: mode.seed,
       });
       try {
         const tracks = await fetchDeezerChartTracks();
-        hostApply({ type: "setChart", tracks });
+        coordApply({ type: "setChart", tracks });
       } catch (e) {}
     });
 
@@ -718,12 +845,31 @@ function useFlipSession(mode, displayName) {
       conn.on("data", (msg) => {
         if (!msg || typeof msg !== "object") return;
         if (msg.type === "action") {
-          hostApply({ ...msg.action, deviceId: conn.peer });
+          const action = msg.action;
+          if (action && action.type === "join") {
+            const nowMs = action.nowMs || Date.now();
+            if (!blitzCanJoinLobby(stateRef.current, nowMs)) {
+              try {
+                conn.send({
+                  type: "joinRejected",
+                  message: stateRef.current.players.length >= BLITZ_MAX_PLAYERS
+                    ? "This room is full."
+                    : "The join window for this room has closed.",
+                });
+              } catch (e) {}
+              return;
+            }
+          }
+          coordApply({ ...action, deviceId: action.deviceId || conn.peer });
         }
       });
       conn.on("close", () => {
         connsRef.current.delete(conn.peer);
-        hostApply({ type: "setOnline", deviceId: conn.peer, online: false });
+        if (stateRef.current.phase === "lobby") {
+          coordApply({ type: "leave", deviceId: conn.peer });
+        } else {
+          coordApply({ type: "setOnline", deviceId: conn.peer, online: false });
+        }
       });
       conn.on("error", () => {});
     });
@@ -741,36 +887,36 @@ function useFlipSession(mode, displayName) {
       peerRef.current = null;
       connsRef.current.clear();
     };
-  }, [mode.roomId, mode.roundCount, mode.seed, hostApply, displayName, myDeviceId]);
+  }, [mode.roomId, mode.roundCount, mode.seed, coordApply, displayName, myDeviceId]);
 
   const dispatch = useCallback((action) => {
-    const isHost = state.hostDeviceId === myDeviceId;
-    if (isHost) {
-      hostApply({ ...action, deviceId: action.deviceId || myDeviceId });
+    const isCoordinator = state.coordinatorDeviceId === myDeviceId;
+    if (isCoordinator) {
+      coordApply({ ...action, deviceId: action.deviceId || myDeviceId });
       return;
     }
     const conn = connsRef.current.get("host");
     if (conn && conn.open) {
       try { conn.send({ type: "action", action }); } catch (e) {}
     }
-  }, [hostApply, myDeviceId, state.hostDeviceId]);
+  }, [coordApply, myDeviceId, state.coordinatorDeviceId]);
 
   return {
     deviceId: myDeviceId,
     state,
     dispatch,
     status,
-    isHost: state.hostDeviceId === myDeviceId,
+    isCoordinator: state.coordinatorDeviceId === myDeviceId,
   };
 }
 
 Object.assign(window, {
   useSession,
-  useFlipSession,
-  useSoloSession: useFlipSession,
+  useBlitzSession,
+  useSoloSession: useBlitzSession,
   getDeviceId,
   newDeviceId,
   PEER_PREFIX,
-  FLIP_PEER_PREFIX,
-  SOLO_PEER_PREFIX: FLIP_PEER_PREFIX,
+  BLITZ_PEER_PREFIX,
+  SOLO_PEER_PREFIX: BLITZ_PEER_PREFIX,
 });

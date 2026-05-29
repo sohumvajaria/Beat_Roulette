@@ -901,7 +901,7 @@ function PlayerCountSlider({ value, onChange }) {
 }
 
 // ---------- Home mode cards ----------
-function ModeIconFlip() {
+function ModeIconBlitz() {
   return (
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
@@ -939,7 +939,7 @@ function HomeModeCard({ title, description, accent, icon, onClick, delayClass, v
       onClick={onClick}
       className={cx(
         "home-mode-card btn-in w-full rounded-2xl border p-4 text-left bg-black/45 backdrop-blur-sm",
-        variant === "flip" && "home-mode-card--flip",
+        variant === "blitz" && "home-mode-card--blitz",
         variant === "party" && "home-mode-card--party",
         variant === "stage" && "home-mode-card--stage",
         delayClass
@@ -1006,7 +1006,7 @@ function setWheelTransform(el, angleDeg) {
   el.style.transform = `rotate3d(0, 0, 1, ${angleDeg}deg)`;
 }
 
-function HomeScreen({ onPartyMode, onFlipMode, onStageMode }) {
+function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
   const wheelRef = useRefApp(null);
   const wheelMotionRef = useRefApp({
     angle: 0,
@@ -1106,18 +1106,7 @@ function HomeScreen({ onPartyMode, onFlipMode, onStageMode }) {
       {/* Top screen-print strip */}
       <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint"></div>
 
-      {/* Header label — print-style */}
-      <div className="hp-header-bar relative z-10 pt-6 px-6 md:px-0 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-2 h-2 rounded-full bg-[var(--hp-gold)] shrink-0"></div>
-          <div className="font-display landing-nav tracking-[0.32em] text-white/80 truncate">BEAT ROULETTE</div>
-        </div>
-        <div className="font-mono landing-tagline uppercase tracking-[0.24em] text-white/40 shrink-0">
-          Est. 2026 · Side A
-        </div>
-      </div>
-
-      <div className="landing-layout relative z-10 flex-1">
+      <div className="landing-layout relative z-10 flex-1 pt-6">
         {/* Copy — left on desktop, below wheel on mobile */}
         <div className="landing-copy px-6 md:px-0 mt-3 md:mt-0 text-center md:text-left">
           <h1 className="fade-up landing-title font-display text-white tracking-[0.01em]">
@@ -1130,12 +1119,12 @@ function HomeScreen({ onPartyMode, onFlipMode, onStageMode }) {
 
           <div className="landing-cta-group mode-cards-grid relative z-10 mt-6">
             <HomeModeCard
-              variant="flip"
-              title="FLIP MODE"
+              variant="blitz"
+              title="BLITZ MODE"
               description="Spin the wheel · name that tune · quick match up to 5"
               accent="var(--hp-gold)"
-              icon={<ModeIconFlip />}
-              onClick={onFlipMode}
+              icon={<ModeIconBlitz />}
+              onClick={onBlitzMode}
               delayClass="btn-in s1"
             />
             <HomeModeCard
@@ -1216,9 +1205,9 @@ function HomeScreen({ onPartyMode, onFlipMode, onStageMode }) {
   );
 }
 
-// ---------- StartScreen — FLIP / PARTY / STAGE modes ----------
+// ---------- StartScreen — BLITZ / PARTY / STAGE modes ----------
 function StartScreen({ onChoose }) {
-  const [view, setView] = useStateApp("home"); // home | party | host | join | flip
+  const [view, setView] = useStateApp("home"); // home | party | host | join | blitz
   const [name, setName] = useStateApp("");
   const [code, setCode] = useStateApp("");
   const [roundPick, setRoundPick] = useStateApp(3);
@@ -1260,7 +1249,7 @@ function StartScreen({ onChoose }) {
     return (
       <HomeScreen
         onPartyMode={() => setView("party")}
-        onFlipMode={() => setView("flip")}
+        onBlitzMode={() => setView("blitz")}
         onStageMode={() => onChoose({ game: "stage" })}
       />
     );
@@ -1343,8 +1332,8 @@ function StartScreen({ onChoose }) {
     );
   }
 
-  if (view === "flip") {
-    return <FlipModeSetupScreen onChoose={onChoose} onBack={() => setView("home")} />;
+  if (view === "blitz") {
+    return <BlitzModeSetupScreen onChoose={onChoose} onBack={() => setView("home")} />;
   }
 
   return null;
@@ -1375,7 +1364,7 @@ function ConnectionGate({ status, mode, onReset }) {
           <>
             <div className="mx-auto w-10 h-10 rounded-full border-2 border-[#282828] border-t-[#1DB954] animate-spin"></div>
             <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-white/45">
-              {mode.kind === "host" ? "Opening room" : mode.kind === "flip" ? "Finding match" : "Joining room"}
+              {mode.kind === "host" ? "Opening room" : mode.kind === "blitz" ? "Finding match" : "Joining room"}
             </div>
             <div className="mt-1 text-base font-medium tabular">{mode.code}</div>
           </>
@@ -1385,8 +1374,8 @@ function ConnectionGate({ status, mode, onReset }) {
   );
 }
 
-// ---------- Flip Mode ----------
-const FLIP_LENGTHS = [
+// ---------- Blitz Mode ----------
+const BLITZ_LENGTHS = [
   { id: "short", label: "Short", rounds: 3 },
   { id: "medium", label: "Medium", rounds: 5 },
   { id: "long", label: "Long", rounds: 7 },
@@ -1401,18 +1390,18 @@ function hashStringToSeed(str) {
   return h >>> 0;
 }
 
-function flipRoomIdForNow(lengthId) {
+function blitzRoomIdForNow(lengthId) {
   const bucket = Math.floor(Date.now() / 30000);
-  return `flip-${lengthId}-${bucket.toString(36)}`;
+  return `blitz-${lengthId}-${bucket.toString(36)}`;
 }
 
-function FlipLengthPicker({ value, onChange }) {
-  const selected = FLIP_LENGTHS.find(x => x.id === value) || FLIP_LENGTHS[0];
+function BlitzLengthPicker({ value, onChange }) {
+  const selected = BLITZ_LENGTHS.find(x => x.id === value) || BLITZ_LENGTHS[0];
   return (
     <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
       <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Game length</div>
       <div className="grid grid-cols-3 gap-2">
-        {FLIP_LENGTHS.map(opt => (
+        {BLITZ_LENGTHS.map(opt => (
           <button
             key={opt.id}
             type="button"
@@ -1446,17 +1435,17 @@ function FlipLengthPicker({ value, onChange }) {
   );
 }
 
-function FlipModeSetupScreen({ onChoose, onBack }) {
+function BlitzModeSetupScreen({ onChoose, onBack }) {
   const [name, setName] = useStateApp("");
   const [lengthId, setLengthId] = useStateApp("short");
-  const selected = FLIP_LENGTHS.find(x => x.id === lengthId) || FLIP_LENGTHS[0];
+  const selected = BLITZ_LENGTHS.find(x => x.id === lengthId) || BLITZ_LENGTHS[0];
 
   const start = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const roomId = flipRoomIdForNow(lengthId);
+    const roomId = blitzRoomIdForNow(lengthId);
     onChoose({
-      game: "flip",
+      game: "blitz",
       name: trimmed,
       lengthId,
       roundCount: selected.rounds,
@@ -1467,17 +1456,17 @@ function FlipModeSetupScreen({ onChoose, onBack }) {
 
   return (
     <HomeStageShell>
-      <HomeHeader subtitle="Flip Mode" onBack={onBack} backLabel="Back" />
+      <HomeHeader subtitle="Blitz Mode" onBack={onBack} backLabel="Back" />
       <div className="stage-content px-6 mt-4 flex-1 pb-8">
         <HpSectionTitle>
           FIND A <span style={{ color: "var(--hp-gold)" }}>MATCH</span>
         </HpSectionTitle>
         <HpSectionDesc>
-          Pick game length, enter your name, then jump into a public lobby with up to 5 players.
+          Pick game length, enter your name, then find a public lobby — everyone votes to start once at least two players are in.
         </HpSectionDesc>
 
         <div className="mt-6 space-y-4">
-          <FlipLengthPicker value={lengthId} onChange={setLengthId} />
+          <BlitzLengthPicker value={lengthId} onChange={setLengthId} />
           <HpPanel>
             <HpField label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
           </HpPanel>
@@ -1488,9 +1477,27 @@ function FlipModeSetupScreen({ onChoose, onBack }) {
   );
 }
 
-function FlipLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
+function BlitzLobbyScreen({ state, dispatch, deviceId, onLeave }) {
   const players = state.players || [];
-  const canStart = isHost && state.chartTracks && state.chartTracks.length >= 8;
+  const onlinePlayers = players.filter(p => p.online !== false);
+  const songsReady = state.chartTracks && state.chartTracks.length >= 8;
+  const canVote = onlinePlayers.length >= 2 && songsReady;
+  const myVoted = !!(state.startVotes && state.startVotes[deviceId]);
+  const voteCount = onlinePlayers.filter(p => state.startVotes && state.startVotes[p.deviceId]).length;
+  const [now, setNow] = useStateApp(Date.now());
+
+  useEffectApp(() => {
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, []);
+
+  const joinWindowEndsAtMs = state.joinWindowEndsAtMs;
+  const joinWindowOpen = onlinePlayers.length >= 2 && joinWindowEndsAtMs && now < joinWindowEndsAtMs;
+  const joinSecondsLeft = joinWindowOpen ? Math.max(0, Math.ceil((joinWindowEndsAtMs - now) / 1000)) : 0;
+
+  const toggleVote = () => {
+    dispatch({ type: "voteStart", voted: !myVoted, startedAtMs: Date.now() + 1500 });
+  };
 
   return (
     <HomeStageShell>
@@ -1502,35 +1509,37 @@ function FlipLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
 
       <div className="stage-content px-6 mt-2 flex-1 pb-6">
         <HpSectionTitle>
-          {isHost ? (
-            <>YOU'RE <span style={{ color: "var(--hp-gold)" }}>HOSTING</span></>
+          {onlinePlayers.length < 2 ? (
+            <>WAITING FOR <span style={{ color: "var(--hp-gold)" }}>PLAYERS</span></>
           ) : (
-            <>YOU'RE <span style={{ color: "var(--hp-magenta)" }}>IN</span></>
+            <>READY TO <span style={{ color: "var(--hp-magenta)" }}>VOTE</span></>
           )}
         </HpSectionTitle>
         <HpSectionDesc>
-          {isHost
-            ? "Wait for players to join nearby, then start when you're ready."
-            : "Hang tight — the host starts the round when everyone's set."}
+          {onlinePlayers.length < 2
+            ? "You're in the room — waiting for at least one more player to join."
+            : joinWindowOpen
+              ? `${joinSecondsLeft}s left for others to join · everyone must vote to start`
+              : "Everyone must vote to start the round."}
         </HpSectionDesc>
 
         <div className="mt-5">
           <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">
-            In the room · {players.length}
+            In the room · {onlinePlayers.length}{joinWindowOpen ? ` · join window ${joinSecondsLeft}s` : ""}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {players.map(p => {
               const isMe = p.deviceId === deviceId;
-              const isHostP = p.deviceId === state.hostDeviceId;
+              const hasVoted = !!(state.startVotes && state.startVotes[p.deviceId]);
               return (
                 <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[64px] shrink-0">
                   <div className="relative">
                     <Avatar name={p.name} size={42} dim={p.online === false} />
-                    {isHostP && (
+                    {hasVoted && onlinePlayers.length >= 2 && (
                       <div
                         className="absolute -top-1 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
                         style={{ background: "var(--hp-gold)", color: "#08080C" }}
-                      >★</div>
+                      >✓</div>
                     )}
                   </div>
                   <div
@@ -1539,9 +1548,9 @@ function FlipLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
                   >{p.name}</div>
                   <div className={cx(
                     "text-[10px] font-mono uppercase tracking-[0.12em]",
-                    p.online === false ? "text-white/25" : "text-[var(--hp-gold)]"
+                    p.online === false ? "text-white/25" : hasVoted && onlinePlayers.length >= 2 ? "text-[var(--hp-gold)]" : "text-white/45"
                   )}>
-                    {p.online === false ? "out" : "ready"}
+                    {p.online === false ? "out" : hasVoted && onlinePlayers.length >= 2 ? "voted" : "here"}
                   </div>
                 </div>
               );
@@ -1550,17 +1559,23 @@ function FlipLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
         </div>
 
         <div className="mt-6 pb-2">
-          {isHost ? (
-            <HpPrimaryBtn
-              disabled={!canStart}
-              onClick={() => dispatch({ type: "startRound", startedAtMs: Date.now() + 1500 })}
-            >
-              {canStart ? `START ${state.roundCount} ROUND${state.roundCount === 1 ? "" : "S"} →` : "LOADING SONGS…"}
-            </HpPrimaryBtn>
+          {canVote ? (
+            <>
+              <HpPrimaryBtn onClick={toggleVote}>
+                {myVoted ? "REVOKE VOTE" : `VOTE TO START · ${voteCount}/${onlinePlayers.length}`}
+              </HpPrimaryBtn>
+              {voteCount > 0 && voteCount < onlinePlayers.length && (
+                <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
+                  Waiting for {onlinePlayers.length - voteCount} more vote{onlinePlayers.length - voteCount === 1 ? "" : "s"}…
+                </div>
+              )}
+            </>
           ) : (
             <HpPanel center className="py-4">
               <HpSectionDesc>
-                {canStart ? "Ready — waiting for host to start…" : "Loading chart tracks…"}
+                {!songsReady
+                  ? "Loading chart tracks…"
+                  : "Need at least 2 players before you can vote to start."}
               </HpSectionDesc>
             </HpPanel>
           )}
@@ -1570,7 +1585,7 @@ function FlipLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
   );
 }
 
-function FlipRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+function BlitzRoundScreen({ state, dispatch, isCoordinator, deviceId, onLeave }) {
   const round = state.round;
   const tracks = state.chartTracks || [];
   const audioRef = useRefApp(null);
@@ -1621,13 +1636,13 @@ function FlipRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   const everyoneAnswered = onlinePlayers.length > 0 && onlinePlayers.every(id => answersThisRound[id]);
 
   useEffectApp(() => {
-    if (!isHost) return;
+    if (!isCoordinator) return;
     if (state.phase !== "round") return;
     if (!round) return;
     if (everyoneAnswered || now >= round.endsAtMs) {
       dispatch({ type: "revealRound" });
     }
-  }, [isHost, state.phase, round, everyoneAnswered, now, dispatch]);
+  }, [isCoordinator, state.phase, round, everyoneAnswered, now, dispatch]);
 
   if (!round || !correct) return null;
 
@@ -1730,14 +1745,14 @@ function FlipRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   );
 }
 
-function FlipResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave }) {
   const tracks = state.chartTracks || [];
   const round = state.round;
   const correct = round ? tracks.find(t => t.deezerId === round.correctId) : null;
   const answersThisRound = state.answers && state.answers[state.roundIdx] ? state.answers[state.roundIdx] : {};
 
   useEffectApp(() => {
-    if (!isHost) return;
+    if (!isCoordinator) return;
     if (state.phase !== "results") return;
     const t = setTimeout(() => {
       if (state.roundIdx + 1 >= state.roundCount) {
@@ -1748,7 +1763,7 @@ function FlipResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
       dispatch({ type: "startRound", startedAtMs: Date.now() + 1800 });
     }, 4200);
     return () => clearTimeout(t);
-  }, [isHost, state.phase, state.roundIdx, state.roundCount, dispatch]);
+  }, [isCoordinator, state.phase, state.roundIdx, state.roundCount, dispatch]);
 
   const sorted = [...(state.players || [])]
     .map(p => ({
@@ -1832,31 +1847,32 @@ function FlipResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
         </div>
 
         <div className="px-6 pt-6 pb-10">
-          {isHost ? (
-            <HpPrimaryBtn disabled>
-              {state.roundIdx + 1 >= state.roundCount ? "FINAL SCORES SOON…" : "NEXT ROUND SOON…"}
-            </HpPrimaryBtn>
-          ) : (
-            <div className="w-full rounded-xl py-4 text-center border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]">
-              Waiting for host to advance…
-            </div>
-          )}
+          <div className="w-full rounded-xl py-4 text-center border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]">
+            {state.roundIdx + 1 >= state.roundCount ? "Final scores soon…" : "Next round soon…"}
+          </div>
         </div>
       </div>
     </HomeStageShell>
   );
 }
 
-function FlipFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+function BlitzFinalScreen({ state, dispatch, deviceId, onLeave }) {
   const sorted = [...(state.players || [])]
     .map(p => ({ deviceId: p.deviceId, name: p.name, score: state.scores[p.deviceId] || 0 }))
     .sort((a, b) => b.score - a.score);
   const winnerScore = sorted[0]?.score ?? 0;
   const winners = sorted.filter(s => s.score === winnerScore && winnerScore > 0);
+  const onlinePlayers = (state.players || []).filter(p => p.online !== false);
+  const myReplayVoted = !!(state.replayVotes && state.replayVotes[deviceId]);
+  const replayVoteCount = onlinePlayers.filter(p => state.replayVotes && state.replayVotes[p.deviceId]).length;
 
-  const playAgain = () => {
-    dispatch({ type: "resetGame", seed: (Math.random() * 0xffffffff) >>> 0 });
-    dispatch({ type: "startRound", startedAtMs: Date.now() + 1800 });
+  const toggleReplayVote = () => {
+    dispatch({
+      type: "voteReplay",
+      voted: !myReplayVoted,
+      seed: (Math.random() * 0xffffffff) >>> 0,
+      startedAtMs: Date.now() + 1800,
+    });
   };
 
   return (
@@ -1906,11 +1922,12 @@ function FlipFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
         </div>
 
         <div className="px-6 pt-8 pb-4">
-          {isHost ? (
-            <HpGoldBtn onClick={playAgain}>PLAY AGAIN →</HpGoldBtn>
-          ) : (
-            <div className="w-full rounded-xl py-4 text-center border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]">
-              Waiting for host to start a new game…
+          <HpGoldBtn onClick={toggleReplayVote}>
+            {myReplayVoted ? "REVOKE PLAY AGAIN VOTE" : `VOTE PLAY AGAIN · ${replayVoteCount}/${onlinePlayers.length}`}
+          </HpGoldBtn>
+          {replayVoteCount > 0 && replayVoteCount < onlinePlayers.length && (
+            <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
+              Everyone must vote to play again
             </div>
           )}
         </div>
@@ -1922,31 +1939,31 @@ function FlipFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   );
 }
 
-function FlipModeView({ choice, onReset }) {
+function BlitzModeView({ choice, onReset }) {
   const mode = useMemoApp(
     () => ({ roomId: choice.roomId, roundCount: choice.roundCount, seed: choice.seed }),
     [choice.roomId, choice.roundCount, choice.seed]
   );
-  const useFlip = window.useFlipSession;
-  if (!useFlip) {
+  const useBlitz = window.useBlitzSession;
+  if (!useBlitz) {
     return (
       <div className="p-8 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
-        Flip Mode failed to load. Refresh the page.
+        Blitz Mode failed to load. Refresh the page.
         <button type="button" onClick={onReset} className="block mx-auto mt-4 btn-spotify rounded-xl px-5 py-2.5 font-display">BACK</button>
       </div>
     );
   }
-  const { deviceId, state, dispatch, status, isHost } = useFlip(mode, choice.name);
+  const { deviceId, state, dispatch, status, isCoordinator } = useBlitz(mode, choice.name);
 
   if (status.kind !== "ready") {
-    return <ConnectionGate status={status} mode={{ kind: "flip", code: choice.roomId }} onReset={onReset} />;
+    return <ConnectionGate status={status} mode={{ kind: "blitz", code: choice.roomId }} onReset={onReset} />;
   }
 
-  const common = { state, dispatch, isHost, deviceId, onLeave: onReset };
-  if (state.phase === "lobby") return <FlipLobbyScreen {...common} />;
-  if (state.phase === "round") return <FlipRoundScreen {...common} />;
-  if (state.phase === "results") return <FlipResultsScreen {...common} />;
-  if (state.phase === "final") return <FlipFinalScreen {...common} />;
+  const common = { state, dispatch, deviceId, onLeave: onReset };
+  if (state.phase === "lobby") return <BlitzLobbyScreen {...common} />;
+  if (state.phase === "round") return <BlitzRoundScreen {...common} isCoordinator={isCoordinator} />;
+  if (state.phase === "results") return <BlitzResultsScreen {...common} isCoordinator={isCoordinator} />;
+  if (state.phase === "final") return <BlitzFinalScreen {...common} />;
   return null;
 }
 
@@ -3279,8 +3296,9 @@ function GameView({ choice, onReset }) {
 // ---------- STAGE MODE ----------
 const STAGE_ACCENT = "#FF2D78";
 const STAGE_PREVIEW_MAX_SEC = 30;
+const MIC_INPUT_GAIN = 4;
 const PITCH_CLARITY_MIN = 0.93;
-const PITCH_RMS_MIN = 0.018;
+const PITCH_RMS_MIN = 0.012;
 const PITCH_HZ_MIN = 80;
 const PITCH_HZ_MAX = 1200;
 const STAGE_SYNC_STEP_SEC = 0.5;
@@ -3354,6 +3372,46 @@ function rmsFromTimeDomain(buffer) {
   for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
   return Math.sqrt(sum / buffer.length);
 }
+
+function micDisplayLevelFromBuffer(buffer) {
+  let peak = 0;
+  let sumSq = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const sample = buffer[i];
+    const abs = Math.abs(sample);
+    if (abs > peak) peak = abs;
+    sumSq += sample * sample;
+  }
+  const rms = Math.sqrt(sumSq / buffer.length);
+  const blended = peak * 0.72 + rms * 0.28;
+  const scaled = blended * 32;
+  return clamp(Math.pow(scaled, 0.48), 0, 1);
+}
+
+function connectStageMicAnalyser(ctx, stream) {
+  const source = ctx.createMediaStreamSource(stream);
+  const gain = ctx.createGain();
+  gain.gain.value = MIC_INPUT_GAIN;
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = 80;
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.3;
+  source.connect(gain);
+  gain.connect(highpass);
+  highpass.connect(analyser);
+  return {
+    analyser,
+    buffer: new Float32Array(analyser.fftSize),
+  };
+}
+
+const STAGE_MIC_CONSTRAINTS = {
+  echoCancellation: true,
+  noiseSuppression: false,
+  autoGainControl: true,
+};
 
 function initialStageState() {
   return {
@@ -3611,20 +3669,37 @@ function StageSearchScreen({ state, dispatch }) {
 
 function MicLevelBars({ level }) {
   const bars = 5;
+  const v = clamp(level, 0, 1);
+  const heights = [10, 14, 18, 22, 28];
   return (
-    <div className="flex items-end gap-1 h-8" aria-hidden="true">
-      {Array.from({ length: bars }).map((_, i) => {
-        const thresh = (i + 1) / bars;
-        const active = level >= thresh * 0.85;
+    <div
+      className="flex items-end gap-1.5"
+      aria-hidden="true"
+      role="meter"
+      aria-valuenow={Math.round(v * 100)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      {heights.map((maxH, i) => {
+        const segStart = i / bars;
+        const segEnd = (i + 1) / bars;
+        const fill = clamp((v - segStart) / (segEnd - segStart), 0, 1);
+        const litH = 3 + fill * (maxH - 3);
         return (
           <div
             key={i}
-            className="w-1.5 rounded-sm transition-all duration-75"
-            style={{
-              height: `${8 + i * 5}px`,
-              background: active ? STAGE_ACCENT : "rgba(255,255,255,0.15)",
-            }}
-          />
+            className="relative w-2 rounded-sm bg-white/12"
+            style={{ height: `${maxH}px` }}
+          >
+            <div
+              className="absolute bottom-0 left-0 right-0 rounded-sm transition-all duration-75"
+              style={{
+                height: `${litH}px`,
+                background: fill > 0.04 ? STAGE_ACCENT : "transparent",
+                boxShadow: fill > 0.45 ? `0 0 8px ${STAGE_ACCENT}` : undefined,
+              }}
+            />
+          </div>
         );
       })}
     </div>
@@ -3635,8 +3710,10 @@ function StageReadyScreen({ state, dispatch, onBack }) {
   const track = state.selectedTrack;
   const micStreamRef = useRefApp(null);
   const analyserRef = useRefApp(null);
+  const bufferRef = useRefApp(null);
   const ctxRef = useRefApp(null);
   const rafRef = useRefApp(null);
+  const micSmoothRef = useRefApp(0);
   const [micLevel, setMicLevel] = useStateApp(0);
 
   useEffectApp(() => {
@@ -3658,11 +3735,13 @@ function StageReadyScreen({ state, dispatch, onBack }) {
   }, [track.deezerTrackId, track.title, track.artist, dispatch]);
 
   useEffectApp(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
     if (ctxRef.current) {
       try { ctxRef.current.close(); } catch (e) {}
       ctxRef.current = null;
     }
     analyserRef.current = null;
+    bufferRef.current = null;
   }, []);
 
   useEffectApp(() => {
@@ -3670,12 +3749,12 @@ function StageReadyScreen({ state, dispatch, onBack }) {
     let cancelled = false;
     const tick = () => {
       const analyser = analyserRef.current;
-      if (analyser && !cancelled) {
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(data);
-        let sum = 0;
-        for (let i = 0; i < data.length; i++) sum += data[i];
-        setMicLevel(sum / data.length / 255);
+      const buffer = bufferRef.current;
+      if (analyser && buffer && !cancelled) {
+        analyser.getFloatTimeDomainData(buffer);
+        const instant = micDisplayLevelFromBuffer(buffer);
+        micSmoothRef.current = micSmoothRef.current * 0.45 + instant * 0.55;
+        setMicLevel(micSmoothRef.current);
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -3689,22 +3768,15 @@ function StageReadyScreen({ state, dispatch, onBack }) {
   const requestMic = async () => {
     dispatch({ type: "setMicStatus", status: "requesting" });
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: false,
-        },
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: STAGE_MIC_CONSTRAINTS });
       micStreamRef.current = stream;
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       ctxRef.current = ctx;
       if (ctx.state === "suspended") await ctx.resume();
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
+      const mic = connectStageMicAnalyser(ctx, stream);
+      analyserRef.current = mic.analyser;
+      bufferRef.current = mic.buffer;
+      micSmoothRef.current = 0;
       dispatch({ type: "setMicStatus", status: "granted" });
       dispatch({ type: "setMicStream", stream });
     } catch (e) {
@@ -3805,6 +3877,7 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
   const pitchesRef = useRefApp([]);
   const totalFramesRef = useRefApp(0);
   const voicedFramesRef = useRefApp(0);
+  const micSmoothRef = useRefApp(0);
   const [currentTime, setCurrentTime] = useStateApp(0);
   const [pitchHz, setPitchHz] = useStateApp(0);
   const [micLevel, setMicLevel] = useStateApp(0);
@@ -3867,39 +3940,28 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
         ctxRef.current = ctx;
         await ctx.resume();
 
-        const micSource = ctx.createMediaStreamSource(micStream);
-        const highpass = ctx.createBiquadFilter();
-        highpass.type = "highpass";
-        highpass.frequency.value = 120;
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 2048;
-        analyser.smoothingTimeConstant = 0.4;
-        micSource.connect(highpass);
-        highpass.connect(analyser);
-        analyserRef.current = analyser;
+        const mic = connectStageMicAnalyser(ctx, micStream);
+        analyserRef.current = mic.analyser;
+        bufferRef.current = mic.buffer;
+        detectorRef.current = PitchDetector.forFloat32Array(mic.analyser.fftSize);
+        micSmoothRef.current = 0;
 
-        const buffer = new Float32Array(analyser.fftSize);
-        bufferRef.current = buffer;
-        detectorRef.current = PitchDetector.forFloat32Array(analyser.fftSize);
+        let playbackStarted = false;
+        const analyser = mic.analyser;
+        const buffer = mic.buffer;
 
-        audio.src = track.previewUrl;
-        audio.load();
-
-        const onCanPlay = () => {
+        const tick = () => {
           if (cancelled) return;
-          const duration = Math.min(STAGE_PREVIEW_MAX_SEC, audio.duration || STAGE_PREVIEW_MAX_SEC);
-          dispatch({ type: "setPerformanceStatus", status: "singing" });
-          audio.currentTime = 0;
 
-          const tick = () => {
-            if (cancelled) return;
+          analyser.getFloatTimeDomainData(buffer);
+          const rms = rmsFromTimeDomain(buffer);
+          const instant = micDisplayLevelFromBuffer(buffer);
+          micSmoothRef.current = micSmoothRef.current * 0.45 + instant * 0.55;
+          setMicLevel(micSmoothRef.current);
 
+          if (playbackStarted) {
             const tAudio = audio.currentTime;
             setCurrentTime(tAudio);
-
-            analyser.getFloatTimeDomainData(buffer);
-            const rms = rmsFromTimeDomain(buffer);
-            setMicLevel(clamp(rms * 5.5, 0, 1));
 
             totalFramesRef.current += 1;
             const [pitch, clarity] = detectorRef.current.findPitch(buffer, ctx.sampleRate);
@@ -3917,16 +3979,28 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
               setPitchHz(0);
             }
 
+            const duration = Math.min(STAGE_PREVIEW_MAX_SEC, audio.duration || STAGE_PREVIEW_MAX_SEC);
             const endAt = Math.min(duration, STAGE_PREVIEW_MAX_SEC);
             if (audio.ended || tAudio >= endAt - 0.05) {
               finishPerformance();
               return;
             }
-            rafRef.current = requestAnimationFrame(tick);
-          };
+          }
 
+          rafRef.current = requestAnimationFrame(tick);
+        };
+
+        rafRef.current = requestAnimationFrame(tick);
+
+        audio.src = track.previewUrl;
+        audio.load();
+
+        const onCanPlay = () => {
+          if (cancelled) return;
+          dispatch({ type: "setPerformanceStatus", status: "singing" });
+          audio.currentTime = 0;
           audio.play().then(() => {
-            rafRef.current = requestAnimationFrame(tick);
+            playbackStarted = true;
           }).catch(() => {
             setPreviewFailed(true);
           });
@@ -4261,8 +4335,8 @@ function App() {
       {choice && (
         choice.game === "stage"
           ? <StageModeView onReset={() => setChoice(null)} />
-          : choice.game === "flip"
-            ? <FlipModeView choice={choice} onReset={() => setChoice(null)} />
+          : choice.game === "blitz"
+            ? <BlitzModeView choice={choice} onReset={() => setChoice(null)} />
             : <GameView choice={choice} onReset={() => setChoice(null)} />
       )}
     </div>

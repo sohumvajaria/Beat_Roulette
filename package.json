@@ -1,7 +1,7 @@
 {
   "name": "beat-roulette",
   "private": true,
-  "description": "Beat Roulette — party, flip, and stage modes",
+  "description": "Beat Roulette — party, blitz, and stage modes",
   "dependencies": {
     "pitchy": "^4.1.0"
   }
