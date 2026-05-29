@@ -528,6 +528,7 @@ function blitzInitialState() {
 const BLITZ_JOIN_WINDOW_MS = 30000;
 const BLITZ_MIN_PLAYERS = 2;
 const BLITZ_MAX_PLAYERS = 5;
+const BLITZ_MATCH_PROBE_MS = 4500;
 
 function blitzOnlinePlayers(state) {
   return (state.players || []).filter(p => p.online !== false);
@@ -784,108 +785,191 @@ function useBlitzSession(mode, displayName) {
     const roomPeerId = BLITZ_PEER_PREFIX + mode.roomId;
     setStatus({ kind: "connecting", message: "Finding match…" });
 
-    const hostPeer = new Peer(roomPeerId, { debug: 0 });
-    peerRef.current = hostPeer;
+    let disposed = false;
 
-    const becomeClient = () => {
-      try { hostPeer.destroy(); } catch (e) {}
-      const clientPeer = new Peer(myDeviceId, { debug: 0 });
-      peerRef.current = clientPeer;
-      clientPeer.on("open", () => {
-        const conn = clientPeer.connect(roomPeerId, { reliable: true });
-        connsRef.current.set("host", conn);
-        const timeout = setTimeout(() => {
-          setStatus({ kind: "error", message: "Matchmaking failed. Try again." });
-        }, 9000);
-        conn.on("open", () => {
-          clearTimeout(timeout);
-          setStatus({ kind: "ready", message: "" });
-          try {
-            conn.send({
-              type: "action",
-              action: { type: "join", deviceId: myDeviceId, name: displayName || "Player", nowMs: Date.now() },
-            });
-          } catch (e) {}
-        });
-        conn.on("data", (msg) => {
-          if (!msg || typeof msg !== "object") return;
-          if (msg.type === "joinRejected") {
-            setStatus({ kind: "error", message: msg.message || "Could not join this room." });
-            return;
-          }
-          if (msg.type === "state") setState(msg.state);
-        });
-        conn.on("close", () => setStatus({ kind: "error", message: "Room closed." }));
-        conn.on("error", () => {});
-      });
-      clientPeer.on("error", () => setStatus({ kind: "error", message: "Connection failed. Try again." }));
-    };
-
-    hostPeer.on("open", async () => {
-      setStatus({ kind: "ready", message: "" });
-      const nowMs = Date.now();
-      coordApply({ type: "join", deviceId: myDeviceId, name: displayName || "Player", nowMs });
-      coordApply({
-        type: "init",
-        coordinatorDeviceId: myDeviceId,
-        roundCount: mode.roundCount,
-        seed: mode.seed,
-      });
-      try {
-        const tracks = await fetchDeezerChartTracks();
-        coordApply({ type: "setChart", tracks });
-      } catch (e) {}
-    });
-
-    hostPeer.on("connection", (conn) => {
-      conn.on("open", () => {
-        connsRef.current.set(conn.peer, conn);
-        try { conn.send({ type: "state", state: stateRef.current }); } catch (e) {}
-      });
-      conn.on("data", (msg) => {
-        if (!msg || typeof msg !== "object") return;
-        if (msg.type === "action") {
-          const action = msg.action;
-          if (action && action.type === "join") {
-            const nowMs = action.nowMs || Date.now();
-            if (!blitzCanJoinLobby(stateRef.current, nowMs)) {
-              try {
-                conn.send({
-                  type: "joinRejected",
-                  message: stateRef.current.players.length >= BLITZ_MAX_PLAYERS
-                    ? "This room is full."
-                    : "The join window for this room has closed.",
-                });
-              } catch (e) {}
-              return;
-            }
-          }
-          coordApply({ ...action, deviceId: action.deviceId || conn.peer });
-        }
-      });
-      conn.on("close", () => {
-        connsRef.current.delete(conn.peer);
-        if (stateRef.current.phase === "lobby") {
-          coordApply({ type: "leave", deviceId: conn.peer });
-        } else {
-          coordApply({ type: "setOnline", deviceId: conn.peer, online: false });
-        }
-      });
-      conn.on("error", () => {});
-    });
-
-    hostPeer.on("error", (err) => {
-      if (err && err.type === "unavailable-id") {
-        becomeClient();
-        return;
-      }
-      setStatus({ kind: "error", message: "Matchmaking failed. Try again." });
-    });
-
-    return () => {
+    const teardownPeer = () => {
       try { peerRef.current && peerRef.current.destroy(); } catch (e) {}
       peerRef.current = null;
       connsRef.current.clear();
+    };
+
+    const wireClientConnection = (clientPeer, conn) => {
+      peerRef.current = clientPeer;
+      connsRef.current.set("host", conn);
+      const failTimeout = setTimeout(() => {
+        if (!disposed) setStatus({ kind: "error", message: "Matchmaking failed. Try again." });
+      }, 9000);
+      conn.on("open", () => {
+        clearTimeout(failTimeout);
+        if (disposed) return;
+        setStatus({ kind: "ready", message: "" });
+        try {
+          conn.send({
+            type: "action",
+            action: { type: "join", deviceId: myDeviceId, name: displayName || "Player", nowMs: Date.now() },
+          });
+        } catch (e) {}
+      });
+      conn.on("data", (msg) => {
+        if (!msg || typeof msg !== "object") return;
+        if (msg.type === "joinRejected") {
+          setStatus({ kind: "error", message: msg.message || "Could not join this room." });
+          return;
+        }
+        if (msg.type === "state") setState(msg.state);
+      });
+      conn.on("close", () => {
+        if (!disposed) setStatus({ kind: "error", message: "Room closed." });
+      });
+      conn.on("error", () => {});
+    };
+
+    const wireHostPeer = (hostPeer, onHostOpen) => {
+      peerRef.current = hostPeer;
+
+      hostPeer.on("open", async () => {
+        if (disposed) return;
+        if (onHostOpen) onHostOpen();
+        setStatus({ kind: "ready", message: "" });
+        const nowMs = Date.now();
+        coordApply({ type: "join", deviceId: myDeviceId, name: displayName || "Player", nowMs });
+        coordApply({
+          type: "init",
+          coordinatorDeviceId: myDeviceId,
+          roundCount: mode.roundCount,
+          seed: mode.seed,
+        });
+        try {
+          const tracks = await fetchDeezerChartTracks();
+          if (!disposed) coordApply({ type: "setChart", tracks });
+        } catch (e) {}
+      });
+
+      hostPeer.on("connection", (conn) => {
+        conn.on("open", () => {
+          connsRef.current.set(conn.peer, conn);
+          try { conn.send({ type: "state", state: stateRef.current }); } catch (e) {}
+        });
+        conn.on("data", (msg) => {
+          if (!msg || typeof msg !== "object") return;
+          if (msg.type === "action") {
+            const action = msg.action;
+            if (action && action.type === "join") {
+              const nowMs = action.nowMs || Date.now();
+              if (!blitzCanJoinLobby(stateRef.current, nowMs)) {
+                try {
+                  conn.send({
+                    type: "joinRejected",
+                    message: stateRef.current.players.length >= BLITZ_MAX_PLAYERS
+                      ? "This room is full."
+                      : "The join window for this room has closed.",
+                  });
+                } catch (e) {}
+                return;
+              }
+            }
+            coordApply({ ...action, deviceId: action.deviceId || conn.peer });
+          }
+        });
+        conn.on("close", () => {
+          connsRef.current.delete(conn.peer);
+          if (stateRef.current.phase === "lobby") {
+            coordApply({ type: "leave", deviceId: conn.peer });
+          } else {
+            coordApply({ type: "setOnline", deviceId: conn.peer, online: false });
+          }
+        });
+        conn.on("error", () => {});
+      });
+    };
+
+    const tryJoinExistingRoom = () => new Promise((resolve) => {
+      if (disposed) {
+        resolve(false);
+        return;
+      }
+      const clientPeer = new Peer(myDeviceId, { debug: 0 });
+      let settled = false;
+      const finish = (joined) => {
+        if (settled) return;
+        settled = true;
+        resolve(joined);
+      };
+
+      const abortClient = () => {
+        teardownPeer();
+        finish(false);
+      };
+
+      clientPeer.on("error", () => abortClient());
+
+      clientPeer.on("open", () => {
+        if (disposed) {
+          try { clientPeer.destroy(); } catch (e) {}
+          finish(false);
+          return;
+        }
+        const conn = clientPeer.connect(roomPeerId, { reliable: true });
+        const probeTimeout = setTimeout(() => {
+          try { conn.close(); } catch (e) {}
+          try { clientPeer.destroy(); } catch (e) {}
+          peerRef.current = null;
+          connsRef.current.clear();
+          finish(false);
+        }, BLITZ_MATCH_PROBE_MS);
+
+        conn.on("open", () => {
+          clearTimeout(probeTimeout);
+          wireClientConnection(clientPeer, conn);
+          finish(true);
+        });
+        conn.on("error", () => {
+          clearTimeout(probeTimeout);
+          abortClient();
+        });
+      });
+    });
+
+    const tryOpenRoom = () => new Promise((resolve) => {
+      if (disposed) {
+        resolve("failed");
+        return;
+      }
+      const hostPeer = new Peer(roomPeerId, { debug: 0 });
+      wireHostPeer(hostPeer, () => resolve("hosting"));
+
+      hostPeer.on("error", (err) => {
+        teardownPeer();
+        if (err && err.type === "unavailable-id") {
+          resolve("room-taken");
+          return;
+        }
+        if (!disposed) setStatus({ kind: "error", message: "Matchmaking failed. Try again." });
+        resolve("failed");
+      });
+    });
+
+    (async () => {
+      const joinedExisting = await tryJoinExistingRoom();
+      if (disposed) return;
+      if (joinedExisting) return;
+
+      const hostResult = await tryOpenRoom();
+      if (disposed) return;
+      if (hostResult === "room-taken") {
+        const joinedAfterRace = await tryJoinExistingRoom();
+        if (disposed) return;
+        if (!joinedAfterRace) {
+          setStatus({ kind: "error", message: "Matchmaking failed. Try again." });
+        }
+        return;
+      }
+      if (hostResult === "failed" || hostResult === "hosting") return;
+    })();
+
+    return () => {
+      disposed = true;
+      teardownPeer();
     };
   }, [mode.roomId, mode.roundCount, mode.seed, coordApply, displayName, myDeviceId]);
 

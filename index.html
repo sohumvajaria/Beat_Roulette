@@ -40,7 +40,7 @@
     --stage-accent: #FF2D78;
   }
   html, body, #root {
-    background: #0a0a0a;
+    background: #08080C;
     min-height: 100vh;
     min-height: 100dvh;
   }
@@ -193,6 +193,11 @@
     100% { opacity: 0; transform: scale(1.1) }
   }
   .splash-num { animation: splashIn 1500ms cubic-bezier(.22,1.4,.36,1) forwards; }
+  @keyframes stageScoreIn {
+    0%   { opacity: 0; transform: scale(0.82); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .stage-score-num { animation: stageScoreIn 900ms cubic-bezier(.22,1.4,.36,1) forwards; }
   @keyframes splashSlide {
     0% { transform: translateX(-100%); opacity: 0 }
     20% { opacity: 1 }
@@ -246,9 +251,35 @@
     font-variant-numeric: tabular-nums;
     padding: 0 0.06em;
   }
+  .pool-number--home {
+    font-size: clamp(48px, 12vw, 60px);
+  }
+  .pool-quote {
+    max-width: 22rem;
+    margin-inline: auto;
+    margin-top: 0.75rem;
+  }
+  .pool-quote-text {
+    font-size: 0.8125rem;
+    font-style: italic;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.58);
+  }
+  .pool-quote-author {
+    margin-top: 0.4rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: rgba(245, 197, 24, 0.55);
+  }
 
   /* ---------- Homepage (cinematic) ---------- */
-  .hp-stage {
+  .hp-stage-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
     background:
       radial-gradient(120% 70% at 50% 110%, rgba(14,20,48,0.92) 0%, rgba(8,8,12,1) 60%),
       radial-gradient(80% 50% at 50% 0%, rgba(20,28,64,0.55) 0%, rgba(8,8,12,0) 70%),
@@ -705,18 +736,13 @@
       radial-gradient(70% 50% at 50% 45%, rgba(255, 45, 120, 0.14) 0%, transparent 65%),
       radial-gradient(90% 60% at 50% 100%, rgba(245, 197, 24, 0.08) 0%, transparent 55%);
   }
+  .stage-lyrics-block {
+    min-height: 8rem;
+    max-height: 42vh;
+  }
   .stage-lyric-current {
-    transform: scale(1.02);
     text-shadow: 0 0 40px rgba(245, 197, 24, 0.35);
   }
-  .stage-lyric-prev, .stage-lyric-next {
-    transform: scale(0.92);
-  }
-  .stage-sync-btn {
-    background: rgba(0, 0, 0, 0.45);
-    color: rgba(255, 255, 255, 0.55);
-  }
-  .stage-sync-btn:active { background: rgba(255, 45, 120, 0.15); }
   .mode-cards-grid {
     display: flex;
     flex-direction: column;

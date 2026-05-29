@@ -162,6 +162,20 @@ function DriftingNotes({ count = 18 }) {
   );
 }
 
+function HpStageBackdrop({ noteCount = 18, topStrip = true, bottomStrip = false }) {
+  return (
+    <div className="hp-stage-backdrop hp-vignette hp-grain" aria-hidden="true">
+      <DriftingNotes count={noteCount} />
+      {topStrip && (
+        <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint pointer-events-none" />
+      )}
+      {bottomStrip && (
+        <div className="absolute bottom-0 left-0 right-0 h-[14px] hp-screenprint pointer-events-none" />
+      )}
+    </div>
+  );
+}
+
 // Generic disc/sound-wave glyph (NOT the Spotify wordmark)
 function MusicDiscGlyph({ size = 18 }) {
   return (
@@ -703,11 +717,9 @@ function ArtistPhotoBackdrop() {
 // ---------- Home-style stage (local / cinematic flows) ----------
 function HomeStageShell({ children }) {
   return (
-    <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain fade-enter">
-      <DriftingNotes count={18} />
-      <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint pointer-events-none"></div>
+    <div className="hp-stage relative min-h-[100dvh] overflow-hidden fade-enter">
+      <HpStageBackdrop topStrip bottomStrip />
       <div className="hp-stage-inner relative z-10 flex flex-col min-h-[100dvh] pb-5 overflow-y-auto overflow-x-hidden">{children}</div>
-      <div className="absolute bottom-0 left-0 right-0 h-[14px] hp-screenprint pointer-events-none"></div>
     </div>
   );
 }
@@ -1099,12 +1111,8 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
   };
 
   return (
-    <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain flex flex-col">
-      {/* Drifting notes */}
-      <DriftingNotes count={18} />
-
-      {/* Top screen-print strip */}
-      <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint"></div>
+    <div className="hp-stage relative min-h-[100dvh] overflow-hidden flex flex-col">
+      <HpStageBackdrop topStrip />
 
       <div className="landing-layout relative z-10 flex-1 pt-6">
         {/* Copy — left on desktop, below wheel on mobile */}
@@ -1390,9 +1398,36 @@ function hashStringToSeed(str) {
   return h >>> 0;
 }
 
-function blitzRoomIdForNow(lengthId) {
-  const bucket = Math.floor(Date.now() / 30000);
-  return `blitz-${lengthId}-${bucket.toString(36)}`;
+const LOBBY_MUSIC_QUOTES = [
+  { text: "Where words fail, music speaks.", author: "Hans Christian Andersen" },
+  { text: "Music can change the world because it can change people.", author: "Bono" },
+  { text: "One good thing about music, when it hits you, you feel no pain.", author: "Bob Marley" },
+  { text: "Music is the universal language of mankind.", author: "Henry Wadsworth Longfellow" },
+  { text: "Without music, life would be a mistake.", author: "Friedrich Nietzsche" },
+  { text: "Music is what feelings sound like.", author: "Georgia Cates" },
+  { text: "The only truth is music.", author: "Jack Kerouac" },
+  { text: "Music is the wine that fills the cup of silence.", author: "Robert Fripp" },
+  { text: "Music expresses that which cannot be said and on which it is impossible to be silent.", author: "Victor Hugo" },
+  { text: "If I were not a physicist, I would probably be a musician.", author: "Albert Einstein" },
+  { text: "Music is the shorthand of emotion.", author: "Leo Tolstoy" },
+  { text: "Where words leave off, music begins.", author: "Heinrich Heine" },
+  { text: "Music is the divine way to tell beautiful, poetic things to the heart.", author: "Pablo Casals" },
+  { text: "Music is the strongest form of magic.", author: "Marilyn Manson" },
+  { text: "Music is life itself.", author: "Louis Armstrong" },
+  { text: "Music is the moonlight in the gloomy night of life.", author: "Jean Paul Friedrich Richter" },
+  { text: "After silence, that which comes nearest to expressing the inexpressible is music.", author: "Aldous Huxley" },
+  { text: "Music washes away from the soul the dust of everyday life.", author: "Berthold Auerbach" },
+  { text: "Music is the great uniter. An incredible force.", author: "Billy Joel" },
+  { text: "Music is the soundtrack of your life.", author: "Dick Clark" },
+];
+
+function pickLobbyMusicQuote(roomCode) {
+  const idx = hashStringToSeed("lobby-quote-v1-" + String(roomCode || "")) % LOBBY_MUSIC_QUOTES.length;
+  return LOBBY_MUSIC_QUOTES[idx];
+}
+
+function blitzRoomIdForLength(lengthId) {
+  return `blitz-${lengthId}`;
 }
 
 function BlitzLengthPicker({ value, onChange }) {
@@ -1443,7 +1478,7 @@ function BlitzModeSetupScreen({ onChoose, onBack }) {
   const start = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const roomId = blitzRoomIdForNow(lengthId);
+    const roomId = blitzRoomIdForLength(lengthId);
     onChoose({
       game: "blitz",
       name: trimmed,
@@ -2193,6 +2228,8 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
     ? playersReady
     : state.songs.length >= 3 && owners.size >= 2;
 
+  const lobbyQuote = useMemoApp(() => pickLobbyMusicQuote(code), [code]);
+
   const addSongFromSearch = async (song) => {
     if (atSongLimit) {
       setErr(`You already added ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"}.`);
@@ -2327,7 +2364,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
         )}
 
         <div className="mt-6">
-          <PoolCounter count={state.songs.length} target={poolTarget} variant="home" />
+          <PoolCounter count={state.songs.length} variant="home" quote={lobbyQuote} />
         </div>
 
         <div className="mt-6 pb-2">
@@ -2336,7 +2373,9 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
               {canStart
                 ? `START ${state.songs.length} ROUND${state.songs.length === 1 ? "" : "S"} →`
                 : state.players.length < 3
-                  ? `NEED ${3 - state.players.length} MORE PLAYER${3 - state.players.length === 2 ? "" : "S"}`
+                  ? state.players.length === 1
+                    ? "NEED AT LEAST 2 MORE PLAYERS"
+                    : `NEED ${3 - state.players.length} MORE PLAYER${3 - state.players.length === 1 ? "" : "S"}`
                   : poolTarget
                     ? `NEED ${poolTarget - state.songs.length} MORE SONG${poolTarget - state.songs.length === 1 ? "" : "S"}`
                     : "NEED AT LEAST 2 PLAYERS WITH SONGS"}
@@ -2354,10 +2393,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
   );
 }
 
-function PoolCounter({ count, variant, target }) {
-  const minTarget = target != null ? target : 3;
-  const remaining = Math.max(0, minTarget - count);
-  const ready = count >= minTarget;
+function PoolCounter({ count, variant, quote }) {
   const discs = Math.min(count, 8);
   const hp = variant === "home";
   return (
@@ -2370,8 +2406,14 @@ function PoolCounter({ count, variant, target }) {
         hp ? "font-mono text-[10px] text-white/45" : "text-[10px] text-white/40"
       )}>Songs in the pool</div>
       <div className="relative mt-1 flex items-baseline justify-center">
-        <span className="pool-number" style={hp ? { color: "var(--hp-gold)" } : undefined}>{count}</span>
+        <span className={cx("pool-number", hp && "pool-number--home")} style={hp ? { color: "var(--hp-gold)" } : undefined}>{count}</span>
       </div>
+      {quote && (
+        <blockquote className="pool-quote">
+          <p className="pool-quote-text">&ldquo;{quote.text}&rdquo;</p>
+          <footer className="pool-quote-author">&mdash; {quote.author}</footer>
+        </blockquote>
+      )}
       {discs > 0 && (
         <div className="mt-3 flex items-center justify-center -space-x-2">
           {Array.from({ length: discs }).map((_, i) => (
@@ -2392,13 +2434,6 @@ function PoolCounter({ count, variant, target }) {
           )}
         </div>
       )}
-      <div className={cx("mt-3", hp ? "font-mono text-[10px] uppercase tracking-[0.18em] text-white/45" : "text-[11px] text-white/50")}>
-        {ready
-          ? <span style={hp ? { color: "var(--hp-gold)" } : undefined} className={hp ? "" : "text-[#1DB954]"}>Ready to spin — start whenever.</span>
-          : target != null
-            ? `${remaining} more song${remaining === 1 ? "" : "s"} to start · ${count}/${minTarget}`
-            : `${remaining} more to start${count > 0 ? "" : " · min 3"}.`}
-      </div>
     </div>
   );
 }
@@ -2412,9 +2447,9 @@ function SplashScreen({ roundNumber, totalRounds, onDone, isHost, cinematic }) {
   }, [onDone, isHost]);
   if (cinematic) {
     return (
-      <div className="fade-enter absolute inset-0 z-30 hp-stage hp-vignette hp-grain overflow-hidden">
-        <DriftingNotes count={14} />
-        <div className="absolute inset-0 grid place-items-center">
+      <div className="fade-enter absolute inset-0 z-30 hp-stage overflow-hidden">
+        <HpStageBackdrop noteCount={14} topStrip={false} />
+        <div className="absolute inset-0 z-10 grid place-items-center">
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-24 splash-strip bg-gradient-to-r from-transparent via-[var(--hp-gold)]/20 to-transparent"></div>
           <div className="relative text-center splash-num px-6">
             <div className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/45">Round</div>
@@ -3296,13 +3331,21 @@ function GameView({ choice, onReset }) {
 // ---------- STAGE MODE ----------
 const STAGE_ACCENT = "#FF2D78";
 const STAGE_PREVIEW_MAX_SEC = 30;
-const MIC_INPUT_GAIN = 4;
-const PITCH_CLARITY_MIN = 0.93;
-const PITCH_RMS_MIN = 0.012;
+const MIC_INPUT_GAIN = 5;
+const PITCH_CLARITY_MIN = 0.82;
+const PITCH_CLARITY_VOICE_MIN = 0.84;
+const PITCH_CLARITY_SCORE_MIN = 0.74;
+const PITCH_RMS_MIN = 0.004;
+const PITCH_SCORE_RMS_MIN = 0.002;
 const PITCH_HZ_MIN = 80;
 const PITCH_HZ_MAX = 1200;
-const STAGE_SYNC_STEP_SEC = 0.5;
-const STAGE_SYNC_MAX_SEC = 15;
+const VOICE_PITCH_MIN = 100;
+const VOICE_PITCH_MAX = 900;
+const VOICE_BAND_RATIO_MIN = 0.26;
+const VOICE_RMS_ABOVE_NOISE_FACTOR = 2.0;
+const MIC_BLEED_RMS_FACTOR = 1.1;
+const PITCH_MATCH_CENTS = 80;
+const PITCH_SCORE_MATCH_CENTS = 110;
 
 const SCORE_LABELS = [
   { min: 100, max: 100, label: "⭐ PITCH PERFECT" },
@@ -3339,6 +3382,7 @@ function stageTrackFromDeezer(t) {
     deezerTrackId: String(t.id),
     title: String(t.title_short || t.title || "").trim(),
     artist: (t.artist && t.artist.name) ? String(t.artist.name).trim() : "Unknown artist",
+    albumName: (t.album && t.album.title) ? String(t.album.title).trim() : "",
     albumArt: (t.album && t.album.cover_medium) || (t.album && t.album.cover_small) || null,
     previewUrl: t.preview ? String(t.preview) : null,
     durationSec,
@@ -3347,24 +3391,144 @@ function stageTrackFromDeezer(t) {
 }
 
 async function enrichStageTrack(track) {
-  if (track.durationSec > 0 && track.previewStartSec != null) return track;
+  if (track.durationSec > 0 && track.albumName) return track;
   try {
     const url = `https://api.deezer.com/track/${track.deezerTrackId}`;
     const data = await fetchWithCorsFallback(url);
-    const durationSec = data && data.duration ? Number(data.duration) : 0;
+    const durationSec = data && data.duration ? Number(data.duration) : track.durationSec || 0;
+    const albumName = (data && data.album && data.album.title)
+      ? String(data.album.title).trim()
+      : (track.albumName || "");
     return {
       ...track,
       durationSec,
+      albumName,
       previewStartSec: computeDeezerPreviewStartSec(durationSec),
     };
   } catch (e) {
-    return { ...track, durationSec: 0, previewStartSec: 30 };
+    return {
+      ...track,
+      durationSec: track.durationSec || 0,
+      previewStartSec: track.previewStartSec != null ? track.previewStartSec : 30,
+    };
   }
 }
 
-function getStageSongTime(audioCurrentTime, track, lyricsOffset) {
-  const start = track.previewStartSec != null ? track.previewStartSec : 30;
-  return audioCurrentTime + start + (lyricsOffset || 0);
+/**
+ * Where the Deezer 30s MP3 begins in the full song (seconds).
+ * Try candidate start times; pick the 30s window with lyrics that begin soon in the clip.
+ */
+function pickPreviewStartSec(lyrics, durationSec) {
+  const fallback = computeDeezerPreviewStartSec(durationSec);
+  if (!lyrics || lyrics.length === 0) return fallback;
+  const d = durationSec > 0 ? durationSec : 240;
+  const window = STAGE_PREVIEW_MAX_SEC;
+  const maxStart = Math.max(0, Math.floor(d) - window);
+  const candidates = new Set([fallback, 0]);
+  for (let s = 0; s <= maxStart; s += 5) candidates.add(s);
+
+  let bestStart = fallback;
+  let bestScore = -Infinity;
+  candidates.forEach((start) => {
+    const inWindow = lyrics.filter(
+      (l) => l.timeSeconds >= start && l.timeSeconds < start + window
+    );
+    if (inWindow.length === 0) return;
+    const firstInClip = inWindow[0].timeSeconds - start;
+    const score = inWindow.length * 8
+      + (start === fallback ? 6 : 0)
+      + (firstInClip <= 6 ? 10 : 0)
+      - firstInClip * 0.5;
+    if (score > bestScore) {
+      bestScore = score;
+      bestStart = start;
+    }
+  });
+  return bestStart;
+}
+
+/** Lines whose timestamps fall inside [previewStart, previewStart + 30s) of the full song. */
+function clipLyricsForPreview(lyrics, previewStartSec) {
+  if (!lyrics || lyrics.length === 0) return [];
+  const start = previewStartSec != null ? previewStartSec : 0;
+  const end = start + STAGE_PREVIEW_MAX_SEC;
+  let clip = lyrics.filter((l) => l.timeSeconds >= start - 0.02 && l.timeSeconds < end + 0.02);
+  if (clip.length > 0) return clip;
+  clip = lyrics.filter((l) => l.timeSeconds < end && l.timeSeconds + 1 >= start);
+  if (clip.length > 0) return clip;
+  return lyrics;
+}
+
+/** Full-song playback time while the preview MP3 is playing. */
+function getStageSongTime(audioCurrentTime, previewStartSec) {
+  const start = previewStartSec != null ? previewStartSec : 0;
+  return start + audioCurrentTime;
+}
+
+function medianLyricLineGapSec(lines) {
+  if (!lines || lines.length < 2) return 1.5;
+  const gaps = [];
+  for (let i = 1; i < lines.length; i++) {
+    const gap = lines[i].timeSeconds - lines[i - 1].timeSeconds;
+    if (gap > 0.08 && gap < 14) gaps.push(gap);
+  }
+  if (gaps.length === 0) return 1.5;
+  gaps.sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)];
+}
+
+/**
+ * LRC tags often mark when a phrase ends / next begins, so naive matching lags ~1 line.
+ * Advance timing by a fraction of the typical gap between lines.
+ */
+function findActiveLyricIndex(lines, audioTimeSec, previewStartSec) {
+  if (!lines || lines.length === 0) return -1;
+  const start = previewStartSec != null ? previewStartSec : 0;
+  const gap = medianLyricLineGapSec(lines);
+  const lineLead = clamp(gap * 0.65, 0.75, 3.5);
+  const t = audioTimeSec + lineLead;
+  let idx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const relStart = lines[i].timeSeconds - start;
+    if (t >= relStart - 0.05) idx = i;
+    else break;
+  }
+  return idx;
+}
+
+function pitchCentsDiff(hzA, hzB) {
+  if (hzA <= 0 || hzB <= 0) return 9999;
+  return Math.abs(1200 * Math.log2(hzA / hzB));
+}
+
+function pitchMatchesReference(micHz, refHz, maxCents) {
+  if (micHz <= 0 || refHz <= 0) return false;
+  const raw = pitchCentsDiff(micHz, refHz);
+  const wrapped = [raw, Math.abs(raw - 1200), Math.abs(raw + 1200), Math.abs(raw - 2400), Math.abs(raw + 2400)];
+  return Math.min(...wrapped) <= maxCents;
+}
+
+function detectVoicedPitch(detector, buffer, sampleRate, rms) {
+  const [pitch, clarity] = detector.findPitch(buffer, sampleRate);
+  if (
+    clarity <= PITCH_CLARITY_MIN
+    || pitch <= PITCH_HZ_MIN
+    || pitch >= PITCH_HZ_MAX
+    || rms <= PITCH_RMS_MIN
+  ) {
+    return null;
+  }
+  return pitch;
+}
+
+/** Looser pitch gate for scoring — must not share the bleed / spectrum filters used for the meter. */
+function detectMicPitchForScore(detector, buffer, sampleRate) {
+  const rms = rmsFromTimeDomain(buffer);
+  if (rms <= PITCH_SCORE_RMS_MIN) return null;
+  const [pitch, clarity] = detector.findPitch(buffer, sampleRate);
+  if (clarity <= PITCH_CLARITY_SCORE_MIN) return null;
+  if (pitch < 85 || pitch > 1100) return null;
+  return pitch;
 }
 
 function rmsFromTimeDomain(buffer) {
@@ -3373,19 +3537,84 @@ function rmsFromTimeDomain(buffer) {
   return Math.sqrt(sum / buffer.length);
 }
 
-function micDisplayLevelFromBuffer(buffer) {
-  let peak = 0;
-  let sumSq = 0;
-  for (let i = 0; i < buffer.length; i++) {
-    const sample = buffer[i];
-    const abs = Math.abs(sample);
-    if (abs > peak) peak = abs;
-    sumSq += sample * sample;
+function createMicVoiceTracker() {
+  return { noiseFloor: 0.004, bleedRms: 0.005 };
+}
+
+function updateMicNoiseFloor(tracker, rms, clarity) {
+  if (rms < tracker.noiseFloor * 2.2 && clarity < 0.78) {
+    tracker.noiseFloor = tracker.noiseFloor * 0.92 + rms * 0.08;
   }
-  const rms = Math.sqrt(sumSq / buffer.length);
-  const blended = peak * 0.72 + rms * 0.28;
-  const scaled = blended * 32;
-  return clamp(Math.pow(scaled, 0.48), 0, 1);
+  tracker.noiseFloor = clamp(tracker.noiseFloor, 0.0015, 0.045);
+}
+
+function voiceBandEnergyRatio(analyser, sampleRate) {
+  const binCount = analyser.frequencyBinCount;
+  const spectrum = new Float32Array(binCount);
+  analyser.getFloatFrequencyData(spectrum);
+  const binHz = sampleRate / analyser.fftSize;
+  const lowBin = Math.max(1, Math.floor(280 / binHz));
+  const highBin = Math.min(binCount - 1, Math.ceil(3500 / binHz));
+  let voiceSum = 0;
+  let totalSum = 0;
+  for (let i = 1; i < binCount; i++) {
+    const mag = Math.pow(10, spectrum[i] / 20);
+    totalSum += mag;
+    if (i >= lowBin && i <= highBin) voiceSum += mag;
+  }
+  return totalSum > 1e-9 ? voiceSum / totalSum : 0;
+}
+
+/**
+ * Distinguish sung human voice from room noise / speaker bleed using pitch clarity,
+ * vocal frequency range, speech-band spectrum, adaptive noise floor, and bleed baseline.
+ */
+function detectHumanVoicePitch(detector, analyser, buffer, sampleRate, tracker, refHz) {
+  const rms = rmsFromTimeDomain(buffer);
+  const [pitch, clarity] = detector.findPitch(buffer, sampleRate);
+  updateMicNoiseFloor(tracker, rms, clarity);
+
+  const bandRatio = voiceBandEnergyRatio(analyser, sampleRate);
+  const aboveNoise = rms > tracker.noiseFloor * VOICE_RMS_ABOVE_NOISE_FACTOR + 0.0025;
+  const inVocalRange = pitch >= VOICE_PITCH_MIN && pitch <= VOICE_PITCH_MAX;
+  const clear = clarity >= PITCH_CLARITY_VOICE_MIN;
+  const voiceSpectrum = bandRatio >= VOICE_BAND_RATIO_MIN;
+
+  if (refHz > 0 && (clarity < PITCH_CLARITY_VOICE_MIN || !inVocalRange)) {
+    tracker.bleedRms = tracker.bleedRms * 0.965 + rms * 0.035;
+  }
+  tracker.bleedRms = clamp(tracker.bleedRms, tracker.noiseFloor, 0.2);
+
+  let isVoice = inVocalRange && clear && aboveNoise && voiceSpectrum && rms > PITCH_RMS_MIN;
+  if (isVoice && refHz > 0) {
+    const aboveBleed = rms > tracker.bleedRms * MIC_BLEED_RMS_FACTOR + tracker.noiseFloor * 0.35;
+    const clearVoice = clarity >= 0.88 && bandRatio >= VOICE_BAND_RATIO_MIN + 0.04;
+    isVoice = aboveBleed || clearVoice;
+  }
+
+  const voiceLevel = isVoice
+    ? clamp((rms - tracker.noiseFloor) / 0.07, 0, 1) * clamp(clarity, 0, 1)
+    : 0;
+
+  return {
+    pitch: isVoice ? pitch : null,
+    isVoice,
+    voiceLevel,
+    rms,
+    clarity,
+  };
+}
+
+function micVoiceMeterLevel(analyser, buffer, sampleRate, tracker, detector) {
+  if (detector) {
+    return detectHumanVoicePitch(detector, analyser, buffer, sampleRate, tracker, 0).voiceLevel;
+  }
+  const rms = rmsFromTimeDomain(buffer);
+  updateMicNoiseFloor(tracker, rms, 0);
+  const bandRatio = voiceBandEnergyRatio(analyser, sampleRate);
+  const aboveNoise = rms > tracker.noiseFloor * VOICE_RMS_ABOVE_NOISE_FACTOR + 0.0025;
+  if (!aboveNoise || bandRatio < VOICE_BAND_RATIO_MIN * 0.85) return 0;
+  return clamp((rms - tracker.noiseFloor) / 0.07, 0, 1);
 }
 
 function connectStageMicAnalyser(ctx, stream) {
@@ -3394,13 +3623,17 @@ function connectStageMicAnalyser(ctx, stream) {
   gain.gain.value = MIC_INPUT_GAIN;
   const highpass = ctx.createBiquadFilter();
   highpass.type = "highpass";
-  highpass.frequency.value = 80;
+  highpass.frequency.value = 100;
+  const lowpass = ctx.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.value = 3400;
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.3;
+  analyser.smoothingTimeConstant = 0.25;
   source.connect(gain);
   gain.connect(highpass);
-  highpass.connect(analyser);
+  highpass.connect(lowpass);
+  lowpass.connect(analyser);
   return {
     analyser,
     buffer: new Float32Array(analyser.fftSize),
@@ -3408,9 +3641,9 @@ function connectStageMicAnalyser(ctx, stream) {
 }
 
 const STAGE_MIC_CONSTRAINTS = {
-  echoCancellation: true,
+  echoCancellation: false,
   noiseSuppression: false,
-  autoGainControl: true,
+  autoGainControl: false,
 };
 
 function initialStageState() {
@@ -3418,9 +3651,11 @@ function initialStageState() {
     screen: "search",
     selectedTrack: null,
     lyrics: [],
+    previewClipLyrics: [],
     plainLyrics: "",
-    lyricsOffset: 0,
-    lyricsStatus: "loading",
+    lyricsStatus: "idle",
+    lyricsTrackId: null,
+    lyricsLoadKey: 0,
     micStatus: "idle",
     performanceStatus: "idle",
     recordedPitches: [],
@@ -3436,55 +3671,125 @@ function initialStageState() {
   };
 }
 
-function scoreLabelFor(score) {
-  if (score === 0) return "NO SIGNAL — was your mic on?";
+function scoreLabelFor(score, pitchSampleCount) {
+  if (score === 0 && pitchSampleCount < 8) return "NO SIGNAL — was your mic on?";
+  if (score === 0) return "🔇 THE MIC WAS ON?";
   const row = SCORE_LABELS.find((r) => score >= r.min && score <= r.max);
   return row ? row.label : SCORE_LABELS[SCORE_LABELS.length - 1].label;
 }
 
-function computeStageScore(recordedPitches, totalFrames, voicedFrames) {
-  if (totalFrames <= 0) return { score: 0, label: "NO SIGNAL — was your mic on?" };
-  const voicedRatio = voicedFrames / totalFrames;
-  if (voicedRatio < 0.2) return { score: 0, label: "NO SIGNAL — was your mic on?" };
+function computeSingingAccuracy(pitchSamples, voicedFrames, refMatch) {
+  const voiced = pitchSamples.filter((s) => s.hz > 0);
+  if (voiced.length < 4) return refMatch != null ? refMatch * 0.35 : 0.2;
 
-  const hzValues = recordedPitches.map((p) => p.hz);
-  let pitchStability = 0;
-  if (hzValues.length >= 2) {
-    const mean = hzValues.reduce((a, b) => a + b, 0) / hzValues.length;
-    const variance = hzValues.reduce((s, h) => s + (h - mean) * (h - mean), 0) / hzValues.length;
-    pitchStability = Math.sqrt(variance);
+  const sampleDensity = clamp(voiced.length / Math.max(voicedFrames, 1), 0, 1);
+  const sustained = voiced.length >= 18 ? 1 : clamp(voiced.length / 18, 0, 1);
+  let baseline = clamp(0.45 + sampleDensity * 0.25 + sustained * 0.2, 0, 0.85);
+
+  if (refMatch == null) return baseline;
+  if (refMatch >= 0.25) return clamp(refMatch * 0.55 + baseline * 0.45, 0, 1);
+  return clamp(baseline * 0.85 + refMatch * 0.15, 0, 1);
+}
+
+function computeRefMatchAccuracy(pitchSamples) {
+  const withRef = pitchSamples.filter((s) => s.hz > 0 && s.refHz > 0);
+  if (withRef.length < 4) return null;
+  const hits = withRef.filter((s) => pitchMatchesReference(s.hz, s.refHz, PITCH_SCORE_MATCH_CENTS)).length;
+  return hits / withRef.length;
+}
+
+function computeStageScore(pitchSamples, totalFrames, voicedFrames) {
+  if (totalFrames <= 0) return { score: 0, label: "NO SIGNAL — was your mic on?" };
+
+  const sampleCount = pitchSamples.length;
+  const voicedRatio = Math.max(voicedFrames / totalFrames, sampleCount / totalFrames);
+  if (voicedRatio < 0.05 && sampleCount < 6) {
+    return { score: 0, label: "NO SIGNAL — was your mic on?" };
   }
-  const stabilityScore = Math.max(0, 1 - pitchStability / 200);
-  const rawScore = voicedRatio * 60 + stabilityScore * 40;
-  const score = Math.round(clamp(rawScore, 0, 100));
-  return { score, label: scoreLabelFor(score) };
+
+  const refMatch = computeRefMatchAccuracy(pitchSamples);
+  const accuracy = computeSingingAccuracy(pitchSamples, Math.max(voicedFrames, sampleCount), refMatch);
+  const rawScore = clamp(voicedRatio * 55 + accuracy * 45, 0, 100);
+  const score = Math.max(1, Math.round(rawScore));
+  return { score, label: scoreLabelFor(score, sampleCount) };
 }
 
 function parseLrc(syncedLyrics) {
   if (!syncedLyrics || typeof syncedLyrics !== "string") return [];
-  const lines = [];
+  const parsed = [];
   const text = syncedLyrics.replace(/\r\n/g, "\n");
-  const lineRe = /\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)/g;
-  let m;
-  while ((m = lineRe.exec(text)) !== null) {
-    const min = parseInt(m[1], 10);
-    const sec = parseFloat(m[2]);
-    const lyricText = (m[3] || "").trim();
-    if (lyricText) lines.push({ timeSeconds: min * 60 + sec, text: lyricText });
+  let offsetSec = 0;
+  const offsetTagRe = /\[offset\s*:\s*([+-]?\d+)\]/gi;
+  let offsetMatch;
+  while ((offsetMatch = offsetTagRe.exec(text)) !== null) {
+    const raw = parseInt(offsetMatch[1], 10);
+    if (!Number.isNaN(raw)) offsetSec += raw / 1000;
   }
-  return lines.sort((a, b) => a.timeSeconds - b.timeSeconds);
+  const timeTagRe = /\[(\d+):(\d+(?:\.\d+)?)\]/g;
+  const hourTagRe = /\[(\d+):(\d+):(\d+(?:\.\d+)?)\]/g;
+  for (const rawLine of text.split("\n")) {
+    const trimmed = rawLine.trim();
+    if (!trimmed || /^\[offset\s*:/i.test(trimmed)) continue;
+    const times = [];
+    let tagMatch;
+    hourTagRe.lastIndex = 0;
+    while ((tagMatch = hourTagRe.exec(trimmed)) !== null) {
+      times.push(
+        parseInt(tagMatch[1], 10) * 3600
+        + parseInt(tagMatch[2], 10) * 60
+        + parseFloat(tagMatch[3])
+        + offsetSec
+      );
+    }
+    if (times.length === 0) {
+      timeTagRe.lastIndex = 0;
+      while ((tagMatch = timeTagRe.exec(trimmed)) !== null) {
+        times.push(parseInt(tagMatch[1], 10) * 60 + parseFloat(tagMatch[2]) + offsetSec);
+      }
+    }
+    if (times.length === 0) continue;
+    const lyricText = trimmed
+      .replace(/\[(\d+):(\d+):(\d+(?:\.\d+)?)\]/g, "")
+      .replace(/\[(\d+):(\d+(?:\.\d+)?)\]/g, "")
+      .trim();
+    if (!lyricText) continue;
+    for (const timeSeconds of times) {
+      parsed.push({ timeSeconds, text: lyricText });
+    }
+  }
+  return parsed.sort((a, b) => a.timeSeconds - b.timeSeconds);
 }
 
-async function fetchWithCorsFallback(url) {
+async function fetchJsonWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("http");
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`http ${res.status}`);
     return await res.json();
-  } catch (e) {
-    const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-    const res = await fetch(proxy);
-    if (!res.ok) throw new Error("proxy");
-    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchWithCorsFallback(url, timeoutMs = 6000) {
+  try {
+    return await fetchJsonWithTimeout(url, timeoutMs);
+  } catch (directErr) {
+    const proxyTimeout = Math.min(4500, timeoutMs);
+    const proxies = [
+      (target) => `https://corsproxy.io/?${encodeURIComponent(target)}`,
+      (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+    ];
+    const results = await Promise.all(
+      proxies.map((toProxy) =>
+        fetchJsonWithTimeout(toProxy(url), proxyTimeout).catch(() => null)
+      )
+    );
+    for (const data of results) {
+      if (data != null) return data;
+    }
+    throw new Error("cors");
   }
 }
 
@@ -3495,39 +3800,149 @@ async function stageDeezerSearch(query) {
   return raw.map(stageTrackFromDeezer).filter((t) => t && t.title);
 }
 
-async function fetchStageLyrics(title, artist) {
-  const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
-  try {
-    const results = await fetchWithCorsFallback(url);
-    const list = Array.isArray(results) ? results : [];
-    const hit = list.find((r) => r.syncedLyrics) || list[0];
-    if (!hit) return { status: "none", lyrics: [], plain: "" };
-    if (hit.syncedLyrics) {
-      const parsed = parseLrc(hit.syncedLyrics);
-      if (parsed.length > 0) return { status: "synced", lyrics: parsed, plain: hit.plainLyrics || "" };
+function lrclibHitToResult(hit) {
+  if (!hit) return { status: "none", lyrics: [], plain: "" };
+  if (hit.syncedLyrics) {
+    const parsed = parseLrc(hit.syncedLyrics);
+    if (parsed.length > 0) {
+      return { status: "synced", lyrics: parsed, plain: hit.plainLyrics || "" };
     }
-    if (hit.plainLyrics) {
-      return { status: "plain", lyrics: [], plain: String(hit.plainLyrics) };
-    }
-    return { status: "none", lyrics: [], plain: "" };
-  } catch (e) {
-    return { status: "none", lyrics: [], plain: "" };
   }
+  if (hit.plainLyrics) {
+    return { status: "plain", lyrics: [], plain: String(hit.plainLyrics) };
+  }
+  return { status: "none", lyrics: [], plain: "" };
 }
 
-function loadLyricsOffset(trackId) {
-  try {
-    const v = localStorage.getItem(`stage-lyrics-offset-${trackId}`);
-    return v ? parseFloat(v) : 0;
-  } catch (e) {
-    return 0;
-  }
+const stageLyricsCache = new Map();
+const stageLyricsInflight = new Map();
+
+function stageLyricsCacheKey(title, artist, durationSec) {
+  return `${String(title).trim().toLowerCase()}|${String(artist).trim().toLowerCase()}|${Math.round(durationSec || 0)}`;
 }
 
-function saveLyricsOffset(trackId, offset) {
-  try {
-    localStorage.setItem(`stage-lyrics-offset-${trackId}`, String(offset));
-  } catch (e) {}
+function pickBestLrcHit(exactHit, searchList, qList, durationSec) {
+  if (exactHit && !exactHit.code && exactHit.syncedLyrics) {
+    const exact = lrclibHitToResult(exactHit);
+    if (exact.status === "synced") return exactHit;
+  }
+
+  const rawHits = [];
+  if (exactHit && !exactHit.code) rawHits.push(exactHit);
+  if (Array.isArray(searchList)) rawHits.push(...searchList);
+  if (Array.isArray(qList)) {
+    const seen = new Set(rawHits.map((h) => h && h.id).filter(Boolean));
+    for (const hit of qList) {
+      if (hit && hit.id && !seen.has(hit.id)) rawHits.push(hit);
+    }
+  }
+  if (rawHits.length === 0) return null;
+
+  let hit = rawHits.find((r) => r.syncedLyrics) || rawHits[0];
+  if (durationSec > 0) {
+    const durationMatch = rawHits.find(
+      (r) => r.syncedLyrics && r.duration && Math.abs(Number(r.duration) - durationSec) <= 4
+    );
+    if (durationMatch) hit = durationMatch;
+  }
+  return hit;
+}
+
+async function fetchStageLyricsUncached(title, artist, durationSec, albumName) {
+  const searchUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
+  const qUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${title} ${artist}`)}`;
+  const getUrl = durationSec > 0
+    ? `https://lrclib.net/api/get?${new URLSearchParams({
+      track_name: title,
+      artist_name: artist,
+      album_name: albumName || title,
+      duration: String(Math.round(durationSec)),
+    }).toString()}`
+    : null;
+
+  const timeoutMs = 5500;
+  const [exactHit, searchList, qList] = await Promise.all([
+    getUrl ? fetchWithCorsFallback(getUrl, timeoutMs).catch(() => null) : Promise.resolve(null),
+    fetchWithCorsFallback(searchUrl, timeoutMs).catch(() => []),
+    fetchWithCorsFallback(qUrl, timeoutMs).catch(() => []),
+  ]);
+
+  const hit = pickBestLrcHit(exactHit, searchList, qList, durationSec);
+  return lrclibHitToResult(hit);
+}
+
+async function fetchStageLyrics(title, artist, durationSec, albumName) {
+  const key = stageLyricsCacheKey(title, artist, durationSec);
+  if (stageLyricsCache.has(key)) return stageLyricsCache.get(key);
+  if (stageLyricsInflight.has(key)) return stageLyricsInflight.get(key);
+
+  const promise = fetchStageLyricsUncached(title, artist, durationSec, albumName)
+    .then((result) => {
+      stageLyricsCache.set(key, result);
+      stageLyricsInflight.delete(key);
+      return result;
+    })
+    .catch(() => {
+      stageLyricsInflight.delete(key);
+      return { status: "none", lyrics: [], plain: "" };
+    });
+
+  stageLyricsInflight.set(key, promise);
+  return promise;
+}
+
+function prefetchStageLyrics(track) {
+  if (!track || !track.title) return;
+  fetchStageLyrics(
+    track.title,
+    track.artist,
+    track.durationSec || 0,
+    track.albumName || ""
+  );
+}
+
+function buildStageLyricsPayload(track, lyricsRes) {
+  const previewStartSec = lyricsRes.status === "synced" && lyricsRes.lyrics.length > 0
+    ? pickPreviewStartSec(lyricsRes.lyrics, track.durationSec || 0)
+    : computeDeezerPreviewStartSec(track.durationSec || 0);
+  const previewClipLyrics = lyricsRes.status === "synced" && lyricsRes.lyrics.length > 0
+    ? clipLyricsForPreview(lyricsRes.lyrics, previewStartSec)
+    : [];
+  return {
+    ...lyricsRes,
+    previewStartSec,
+    previewClipLyrics,
+  };
+}
+
+async function loadStageTrackAndLyrics(track) {
+  const needsEnrich = !(track.durationSec > 0 && track.albumName);
+  const [enriched, lyricsResInitial] = await Promise.all([
+    needsEnrich ? enrichStageTrack(track) : Promise.resolve(track),
+    fetchStageLyrics(
+      track.title,
+      track.artist,
+      track.durationSec || 0,
+      track.albumName || ""
+    ),
+  ]);
+  let lyricsRes = lyricsResInitial;
+  if (
+    needsEnrich
+    && enriched.durationSec > 0
+    && Math.abs((track.durationSec || 0) - enriched.durationSec) > 2
+  ) {
+    lyricsRes = await fetchStageLyrics(
+      enriched.title,
+      enriched.artist,
+      enriched.durationSec,
+      enriched.albumName || ""
+    );
+  }
+  return {
+    track: enriched,
+    lyrics: buildStageLyricsPayload(enriched, lyricsRes),
+  };
 }
 
 function waitForPitchy() {
@@ -3652,9 +4067,9 @@ function StageSearchScreen({ state, dispatch }) {
             <button
               type="button"
               disabled={!track.previewUrl}
-              onClick={async () => {
-                const enriched = await enrichStageTrack(track);
-                dispatch({ type: "selectTrack", track: enriched });
+              onClick={() => {
+                prefetchStageLyrics(track);
+                dispatch({ type: "selectTrack", track });
               }}
               className="stage-select-btn shrink-0 rounded-lg px-3 py-2 font-display text-[14px] tracking-[0.1em]"
             >
@@ -3714,25 +4129,8 @@ function StageReadyScreen({ state, dispatch, onBack }) {
   const ctxRef = useRefApp(null);
   const rafRef = useRefApp(null);
   const micSmoothRef = useRefApp(0);
+  const micVoiceTrackerRef = useRefApp(createMicVoiceTracker());
   const [micLevel, setMicLevel] = useStateApp(0);
-
-  useEffectApp(() => {
-    if (!track) return;
-    const offset = loadLyricsOffset(track.deezerTrackId);
-    dispatch({ type: "setLyricsOffset", offset });
-    dispatch({ type: "setLyricsStatus", status: "loading" });
-    enrichStageTrack(track).then((enriched) => {
-      dispatch({ type: "setTrackMeta", track: enriched });
-    });
-    fetchStageLyrics(track.title, track.artist).then((res) => {
-      dispatch({
-        type: "lyricsLoaded",
-        status: res.status,
-        lyrics: res.lyrics,
-        plain: res.plain,
-      });
-    });
-  }, [track.deezerTrackId, track.title, track.artist, dispatch]);
 
   useEffectApp(() => () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -3752,7 +4150,8 @@ function StageReadyScreen({ state, dispatch, onBack }) {
       const buffer = bufferRef.current;
       if (analyser && buffer && !cancelled) {
         analyser.getFloatTimeDomainData(buffer);
-        const instant = micDisplayLevelFromBuffer(buffer);
+        const sampleRate = ctxRef.current ? ctxRef.current.sampleRate : 44100;
+        const instant = micVoiceMeterLevel(analyser, buffer, sampleRate, micVoiceTrackerRef.current, null);
         micSmoothRef.current = micSmoothRef.current * 0.45 + instant * 0.55;
         setMicLevel(micSmoothRef.current);
       }
@@ -3777,6 +4176,7 @@ function StageReadyScreen({ state, dispatch, onBack }) {
       analyserRef.current = mic.analyser;
       bufferRef.current = mic.buffer;
       micSmoothRef.current = 0;
+      micVoiceTrackerRef.current = createMicVoiceTracker();
       dispatch({ type: "setMicStatus", status: "granted" });
       dispatch({ type: "setMicStream", stream });
     } catch (e) {
@@ -3828,6 +4228,24 @@ function StageReadyScreen({ state, dispatch, onBack }) {
           {state.plainLyrics.slice(0, 400)}{state.plainLyrics.length > 400 ? "…" : ""}
         </div>
       )}
+      {state.lyricsStatus === "synced" && (state.previewClipLyrics.length > 0 || state.lyrics.length > 0) && (
+        <div className="mt-4 rounded-xl border border-white/12 bg-black/40 p-3 max-h-48 overflow-y-auto">
+          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/45 mb-2">
+            Preview lyrics
+            {track.previewStartSec != null && (
+              <> · {formatStageTime(track.previewStartSec)}–{formatStageTime(track.previewStartSec + STAGE_PREVIEW_MAX_SEC)}</>
+            )}
+          </div>
+          <div className="space-y-1 text-sm text-white/80">
+            {(state.previewClipLyrics.length > 0
+              ? state.previewClipLyrics
+              : clipLyricsForPreview(state.lyrics, track.previewStartSec ?? 0)
+            ).map((line, i) => (
+              <div key={`${i}-${line.timeSeconds}`}>{line.text}</div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-8">
         {state.micStatus === "idle" || state.micStatus === "requesting" ? (
@@ -3848,8 +4266,11 @@ function StageReadyScreen({ state, dispatch, onBack }) {
           </div>
         ) : (
           <div className="rounded-xl border border-white/12 bg-black/40 p-4">
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/45 mb-2">Mic level</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/45 mb-2">Mic level (your voice)</div>
             <MicLevelBars level={micLevel} />
+            <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/35">
+              Hum or sing — bars should move with you, not background noise
+            </p>
           </div>
         )}
       </div>
@@ -3868,7 +4289,6 @@ function StageReadyScreen({ state, dispatch, onBack }) {
 
 function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) {
   const track = state.selectedTrack;
-  const audioRef = useRefApp(null);
   const ctxRef = useRefApp(null);
   const analyserRef = useRefApp(null);
   const detectorRef = useRefApp(null);
@@ -3877,33 +4297,60 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
   const pitchesRef = useRefApp([]);
   const totalFramesRef = useRefApp(0);
   const voicedFramesRef = useRefApp(0);
+  const micVoiceTrackerRef = useRefApp(createMicVoiceTracker());
   const micSmoothRef = useRefApp(0);
   const [currentTime, setCurrentTime] = useStateApp(0);
   const [pitchHz, setPitchHz] = useStateApp(0);
   const [micLevel, setMicLevel] = useStateApp(0);
   const [previewFailed, setPreviewFailed] = useStateApp(false);
+  const [analysisFailed, setAnalysisFailed] = useStateApp(false);
 
-  const lyrics = state.lyrics;
-  const offset = state.lyricsOffset;
-  const synced = state.lyricsStatus === "synced" && lyrics.length > 0;
-
-  const previewStart = track ? (track.previewStartSec != null ? track.previewStartSec : 30) : 30;
+  const lyricsScrollRef = useRefApp(null);
+  const allLyrics = state.lyrics || [];
+  const previewStart = track ? (track.previewStartSec != null ? track.previewStartSec : 0) : 0;
+  const clipLyrics = useMemoApp(() => {
+    const start = previewStart;
+    if (state.previewClipLyrics && state.previewClipLyrics.length > 0) {
+      return state.previewClipLyrics;
+    }
+    return clipLyricsForPreview(allLyrics, start);
+  }, [state.previewClipLyrics, allLyrics, previewStart]);
+  const hasLyrics = state.lyricsStatus === "synced" && clipLyrics.length > 0;
+  const hasPlainLyrics = state.lyricsStatus === "plain" && Boolean(state.plainLyrics);
+  const plainLines = useMemoApp(() => {
+    if (!hasPlainLyrics) return [];
+    return String(state.plainLyrics)
+      .split(/\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }, [hasPlainLyrics, state.plainLyrics]);
 
   const activeIndex = useMemoApp(() => {
-    if (!synced || !track) return -1;
-    const songTime = getStageSongTime(currentTime, track, offset);
-    let idx = -1;
-    for (let i = 0; i < lyrics.length; i++) {
-      if (songTime >= lyrics[i].timeSeconds) idx = i;
-      else break;
-    }
-    return idx;
-  }, [currentTime, offset, lyrics, synced, track, previewStart]);
+    if (!hasLyrics || !track) return -1;
+    return findActiveLyricIndex(clipLyrics, currentTime, previewStart);
+  }, [currentTime, clipLyrics, hasLyrics, track, previewStart]);
+
+  const plainActiveIndex = useMemoApp(() => {
+    if (!hasPlainLyrics || plainLines.length === 0) return 0;
+    const progress = clamp(currentTime / STAGE_PREVIEW_MAX_SEC, 0, 1);
+    return clamp(Math.floor(progress * plainLines.length), 0, plainLines.length - 1);
+  }, [currentTime, hasPlainLyrics, plainLines]);
+
+  const displayIndex = hasLyrics ? (activeIndex >= 0 ? activeIndex : 0) : -1;
+  const currentLyricText = hasLyrics && clipLyrics[displayIndex] ? clipLyrics[displayIndex].text : "";
 
   const finishedRef = useRefApp(false);
 
   useEffectApp(() => {
     finishedRef.current = false;
+    pitchesRef.current = [];
+    totalFramesRef.current = 0;
+    voicedFramesRef.current = 0;
+    micVoiceTrackerRef.current = createMicVoiceTracker();
+    setPreviewFailed(false);
+    setAnalysisFailed(false);
+    setCurrentTime(0);
+    setPitchHz(0);
   }, [performanceRun]);
 
   const finishPerformance = useCallbackApp(() => {
@@ -3928,23 +4375,34 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
   useEffectApp(() => {
     if (!track || !micStream) return;
     let cancelled = false;
-    const audio = audioRef.current;
-    if (!audio) return;
+    const audio = new Audio();
+    audio.setAttribute("playsinline", "");
+    audio.crossOrigin = "anonymous";
+    audio.preload = "auto";
 
     const run = async () => {
       const PitchDetector = await waitForPitchy();
-      if (cancelled || !PitchDetector) return;
+      if (cancelled) return;
+      if (!PitchDetector) {
+        setAnalysisFailed(true);
+        return;
+      }
 
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         ctxRef.current = ctx;
-        await ctx.resume();
+        if (ctx.state === "suspended") await ctx.resume();
 
         const mic = connectStageMicAnalyser(ctx, micStream);
         analyserRef.current = mic.analyser;
         bufferRef.current = mic.buffer;
-        detectorRef.current = PitchDetector.forFloat32Array(mic.analyser.fftSize);
+        const micDetector = PitchDetector.forFloat32Array(mic.analyser.fftSize);
+        detectorRef.current = micDetector;
         micSmoothRef.current = 0;
+
+        let refAnalyser = null;
+        let refBuffer = null;
+        let refDetector = null;
 
         let playbackStarted = false;
         const analyser = mic.analyser;
@@ -3954,9 +4412,31 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
           if (cancelled) return;
 
           analyser.getFloatTimeDomainData(buffer);
-          const rms = rmsFromTimeDomain(buffer);
-          const instant = micDisplayLevelFromBuffer(buffer);
-          micSmoothRef.current = micSmoothRef.current * 0.45 + instant * 0.55;
+
+          let refHz = 0;
+          if (playbackStarted) {
+            if (refAnalyser && refDetector && refBuffer) {
+              refAnalyser.getFloatTimeDomainData(refBuffer);
+              const refRms = rmsFromTimeDomain(refBuffer);
+              const refPitch = detectVoicedPitch(refDetector, refBuffer, ctx.sampleRate, refRms * 0.7);
+              if (refPitch) refHz = refPitch;
+            }
+          }
+
+          const scorePitch = detectMicPitchForScore(micDetector, buffer, ctx.sampleRate);
+          const micSample = detectHumanVoicePitch(
+            micDetector,
+            analyser,
+            buffer,
+            ctx.sampleRate,
+            micVoiceTrackerRef.current,
+            refHz
+          );
+          const meterFromScore = scorePitch
+            ? clamp(micSample.rms / 0.055, 0.22, 1) * clamp(micSample.clarity, 0.5, 1)
+            : 0;
+          const meterInstant = Math.max(micSample.voiceLevel, meterFromScore);
+          micSmoothRef.current = micSmoothRef.current * 0.45 + meterInstant * 0.55;
           setMicLevel(micSmoothRef.current);
 
           if (playbackStarted) {
@@ -3964,18 +4444,17 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
             setCurrentTime(tAudio);
 
             totalFramesRef.current += 1;
-            const [pitch, clarity] = detectorRef.current.findPitch(buffer, ctx.sampleRate);
-            const isVoiced = (
-              clarity > PITCH_CLARITY_MIN
-              && pitch > PITCH_HZ_MIN
-              && pitch < PITCH_HZ_MAX
-              && rms > PITCH_RMS_MIN
-            );
-            if (isVoiced) {
+
+            if (refHz > 0 && tAudio < 0.5) {
+              micVoiceTrackerRef.current.bleedRms = micVoiceTrackerRef.current.bleedRms * 0.88
+                + micSample.rms * 0.12;
+            }
+
+            if (scorePitch) {
               voicedFramesRef.current += 1;
-              pitchesRef.current.push({ time: tAudio, hz: pitch });
-              setPitchHz(pitch);
-            } else if (rms <= PITCH_RMS_MIN) {
+              pitchesRef.current.push({ time: tAudio, hz: scorePitch, refHz });
+              setPitchHz(scorePitch);
+            } else {
               setPitchHz(0);
             }
 
@@ -3992,11 +4471,26 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
 
         rafRef.current = requestAnimationFrame(tick);
 
+        audio.crossOrigin = "anonymous";
         audio.src = track.previewUrl;
         audio.load();
 
-        const onCanPlay = () => {
+        const onCanPlay = async () => {
           if (cancelled) return;
+          try {
+            const source = ctx.createMediaElementSource(audio);
+            refAnalyser = ctx.createAnalyser();
+            refAnalyser.fftSize = 2048;
+            source.connect(refAnalyser);
+            source.connect(ctx.destination);
+            refBuffer = new Float32Array(refAnalyser.fftSize);
+            refDetector = PitchDetector.forFloat32Array(refAnalyser.fftSize);
+          } catch (refErr) {
+            refAnalyser = null;
+            refBuffer = null;
+            refDetector = null;
+          }
+          if (ctx.state === "suspended") await ctx.resume();
           dispatch({ type: "setPerformanceStatus", status: "singing" });
           audio.currentTime = 0;
           audio.play().then(() => {
@@ -4020,18 +4514,17 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
       cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       try { audio.pause(); } catch (err) {}
+      audio.removeAttribute("src");
+      try { audio.load(); } catch (err) {}
       try { ctxRef.current && ctxRef.current.close(); } catch (err) {}
     };
   }, [track, micStream, dispatch, finishPerformance, performanceRun]);
 
-  const adjustOffset = (delta) => {
-    const next = Math.round((state.lyricsOffset + delta) * 10) / 10;
-    const clamped = clamp(next, -STAGE_SYNC_MAX_SEC, STAGE_SYNC_MAX_SEC);
-    dispatch({ type: "setLyricsOffset", offset: clamped });
-    if (track) saveLyricsOffset(track.deezerTrackId, clamped);
-  };
-
-  const songTimeNow = track ? getStageSongTime(currentTime, track, offset) : 0;
+  useEffectApp(() => {
+    if (displayIndex < 0 || !lyricsScrollRef.current) return;
+    const row = lyricsScrollRef.current.querySelector(`[data-lyric-idx="${displayIndex}"]`);
+    if (row) row.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [displayIndex, performanceRun]);
 
   const progress = clamp(currentTime / STAGE_PREVIEW_MAX_SEC, 0, 1);
   const secondsLeft = Math.max(0, Math.ceil(STAGE_PREVIEW_MAX_SEC - currentTime));
@@ -4039,11 +4532,13 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
 
   if (!track) return null;
 
-  if (previewFailed) {
+  if (previewFailed || analysisFailed) {
     return (
       <div className="stage-performance flex flex-col items-center justify-center min-h-[70dvh] px-6 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/60">
-          Preview unavailable for this track, try another
+          {analysisFailed
+            ? "Pitch detection failed to load — refresh and try again"
+            : "Preview unavailable for this track, try another"}
         </p>
         <button type="button" onClick={() => dispatch({ type: "goSearch" })} className="stage-primary-btn mt-6 rounded-xl px-6 py-3 font-display">
           NEW SONG
@@ -4051,10 +4546,6 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
       </div>
     );
   }
-
-  const prevLine = synced && activeIndex > 0 ? lyrics[activeIndex - 1] : null;
-  const currLine = synced && activeIndex >= 0 ? lyrics[activeIndex] : null;
-  const nextLine = synced && activeIndex >= 0 && activeIndex < lyrics.length - 1 ? lyrics[activeIndex + 1] : null;
 
   return (
     <div className="stage-performance relative min-h-[100dvh] overflow-hidden flex flex-col">
@@ -4076,68 +4567,91 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
       <div className="relative z-10 px-4 pt-2 flex justify-between items-start gap-2">
         <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/45 leading-snug">
           <div className="tabular">Preview {formatStageTime(currentTime)} / 0:30</div>
-          {synced && (
+          {hasLyrics && (
             <div className="tabular mt-0.5" style={{ color: STAGE_ACCENT }}>
-              Song {formatStageTime(songTimeNow)}
+              Song {formatStageTime(getStageSongTime(currentTime, previewStart))}
             </div>
           )}
         </div>
         <div className="font-display text-[20px] tabular shrink-0" style={{ color: STAGE_ACCENT }}>{secondsLeft}</div>
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-4 min-h-0">
-        {state.lyricsStatus === "plain" && (
-          <div className="max-h-[40vh] overflow-hidden text-center text-sm text-white/65 whitespace-pre-line leading-relaxed px-2">
-            {state.plainLyrics}
-          </div>
-        )}
-        {synced && (
-          <div className="stage-lyrics-block w-full max-w-lg text-center">
-            {prevLine && (
-              <div className="stage-lyric-prev font-display text-[18px] text-white/35 mb-3 transition-all duration-300">
-                {prevLine.text}
-              </div>
-            )}
+      <div className="relative z-10 flex-1 min-h-0 px-4 py-3 flex flex-col gap-3">
+        {hasLyrics && currentLyricText && (
+          <div className="shrink-0 text-center px-2 py-2">
             <div
-              className="stage-lyric-current font-display leading-[1.05] transition-all duration-300"
-              style={{ color: "var(--hp-gold)", fontSize: "clamp(1.5rem, 6vw, 2.75rem)" }}
+              className="font-display stage-lyric-current leading-tight"
+              style={{
+                color: "var(--hp-gold)",
+                fontSize: "clamp(1.75rem, 7vw, 2.75rem)",
+              }}
             >
-              {currLine ? currLine.text : "♪"}
+              {currentLyricText}
             </div>
-            {nextLine && (
-              <div className="stage-lyric-next font-display text-[18px] text-white/40 mt-3 transition-all duration-300">
-                {nextLine.text}
-              </div>
-            )}
           </div>
         )}
-        {!synced && state.lyricsStatus !== "plain" && (
-          <div className="font-display text-[28px] text-white/50 tracking-[0.08em]">SING IT!</div>
+        {hasPlainLyrics && plainLines.length > 0 && (
+          <div className="shrink-0 text-center px-2 py-2">
+            <div
+              className="font-display stage-lyric-current leading-tight"
+              style={{
+                color: "var(--hp-gold)",
+                fontSize: "clamp(1.5rem, 6vw, 2.25rem)",
+              }}
+            >
+              {plainLines[plainActiveIndex]}
+            </div>
+          </div>
+        )}
+        {hasLyrics && (
+          <div ref={lyricsScrollRef} className="stage-lyrics-block flex-1 min-h-0 overflow-y-auto w-full max-w-lg mx-auto text-center px-2">
+            {clipLyrics.map((line, i) => {
+              const isActive = i === displayIndex;
+              const isPast = activeIndex >= 0 && i < activeIndex;
+              return (
+                <div
+                  key={`${i}-${line.timeSeconds}`}
+                  data-lyric-idx={i}
+                  className="font-display py-1.5 leading-snug"
+                  style={{
+                    color: isActive ? "var(--hp-gold)" : isPast ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.65)",
+                    fontSize: isActive ? "clamp(1.2rem, 4.5vw, 1.65rem)" : "clamp(0.95rem, 3.5vw, 1.1rem)",
+                    fontWeight: isActive ? 600 : 400,
+                    textShadow: isActive ? "0 0 32px rgba(245, 197, 24, 0.35)" : undefined,
+                  }}
+                >
+                  {line.text}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {hasPlainLyrics && !hasLyrics && (
+          <div className="flex-1 min-h-0 overflow-y-auto text-center text-sm text-white/60 whitespace-pre-line leading-relaxed px-2">
+            {plainLines.map((line, i) => (
+              <div
+                key={i}
+                className="py-1 font-display"
+                style={{
+                  color: i === plainActiveIndex ? "var(--hp-gold)" : "rgba(255,255,255,0.45)",
+                  fontSize: i === plainActiveIndex ? "1.15rem" : "0.95rem",
+                }}
+              >
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
+        {!hasLyrics && !hasPlainLyrics && (
+          <div className="flex-1 grid place-items-center">
+            <div className="font-display text-[28px] text-white/50 tracking-[0.08em] text-center px-4">
+              {state.lyricsStatus === "loading" ? "Loading lyrics…" : "SING IT!"}
+            </div>
+          </div>
         )}
       </div>
 
-      <div className="relative z-10 px-4 pb-4 flex flex-col gap-2">
-        {synced && (
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => adjustOffset(-STAGE_SYNC_STEP_SEC)}
-              className="stage-sync-btn font-mono text-[9px] uppercase px-2.5 py-1.5 rounded-lg border border-white/20"
-            >
-              −0.5s earlier
-            </button>
-            <span className="font-mono text-[9px] tabular text-white/40 min-w-[72px] text-center">
-              {offset >= 0 ? "+" : ""}{offset.toFixed(1)}s
-            </span>
-            <button
-              type="button"
-              onClick={() => adjustOffset(STAGE_SYNC_STEP_SEC)}
-              className="stage-sync-btn font-mono text-[9px] uppercase px-2.5 py-1.5 rounded-lg border border-white/20"
-            >
-              +0.5s later
-            </button>
-          </div>
-        )}
+      <div className="relative z-10 px-4 pb-4 flex flex-col gap-2 shrink-0">
         <div className="flex items-end justify-between gap-3">
         <MicLevelBars level={micLevel} />
         <div
@@ -4152,7 +4666,6 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
         </div>
       </div>
 
-      <audio ref={audioRef} preload="auto" playsInline />
     </div>
   );
 }
@@ -4168,9 +4681,15 @@ function StageResultsScreen({ state, dispatch, onExit }) {
     const dur = 1200;
     const step = (now) => {
       const p = clamp((now - start) / dur, 0, 1);
-      setDisplayScore(Math.round(target * p));
-      if (p < 1) frame = requestAnimationFrame(step);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayScore(Math.round(target * eased));
+      if (p < 1) {
+        frame = requestAnimationFrame(step);
+      } else {
+        setDisplayScore(target);
+      }
     };
+    setDisplayScore(0);
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
   }, [target]);
@@ -4178,7 +4697,7 @@ function StageResultsScreen({ state, dispatch, onExit }) {
   return (
     <div className="stage-shell stage-content flex-1 px-6 pb-10 text-center">
       <div
-        className="font-display leading-none tabular splash-num"
+        className="font-display leading-none tabular stage-score-num"
         style={{ fontSize: "clamp(72px, 20vw, 120px)", color: STAGE_ACCENT }}
       >
         {displayScore}
@@ -4225,18 +4744,21 @@ function stageReducer(state, action) {
         ...initialStageState(),
         screen: "ready",
         selectedTrack: action.track,
-        lyricsOffset: loadLyricsOffset(action.track.deezerTrackId),
         micStatus: "idle",
+        lyricsLoadKey: Date.now(),
       };
     case "lyricsLoaded":
       return {
         ...state,
         lyrics: action.lyrics,
+        previewClipLyrics: action.previewClipLyrics || [],
         plainLyrics: action.plain,
         lyricsStatus: action.status,
+        lyricsTrackId: state.selectedTrack ? state.selectedTrack.deezerTrackId : state.lyricsTrackId,
+        selectedTrack: state.selectedTrack && action.previewStartSec != null
+          ? { ...state.selectedTrack, previewStartSec: action.previewStartSec }
+          : state.selectedTrack,
       };
-    case "setLyricsOffset":
-      return { ...state, lyricsOffset: action.offset };
     case "setLyricsStatus":
       return { ...state, lyricsStatus: action.status };
     case "setMicStatus":
@@ -4293,8 +4815,47 @@ function StageModeView({ onReset }) {
   const [state, dispatch] = useReducerApp(stageReducer, initialStageState());
   const micStream = state.micStream || null;
 
+  useEffectApp(() => {
+    const track = state.selectedTrack;
+    if (!track || !state.lyricsLoadKey) return;
+
+    let cancelled = false;
+    dispatch({ type: "setLyricsStatus", status: "loading" });
+
+    loadStageTrackAndLyrics(track)
+      .then(({ track: enriched, lyrics: res }) => {
+        if (cancelled) return;
+        dispatch({ type: "setTrackMeta", track: enriched });
+        dispatch({
+          type: "lyricsLoaded",
+          status: res.status,
+          lyrics: res.lyrics,
+          plain: res.plain,
+          previewStartSec: res.previewStartSec,
+          previewClipLyrics: res.previewClipLyrics || [],
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        dispatch({
+          type: "lyricsLoaded",
+          status: "none",
+          lyrics: [],
+          plain: "",
+          previewStartSec: track.previewStartSec != null
+            ? track.previewStartSec
+            : computeDeezerPreviewStartSec(track.durationSec || 0),
+          previewClipLyrics: [],
+        });
+      });
+
+    return () => { cancelled = true; };
+  }, [state.lyricsLoadKey, dispatch]);
+
   return (
-    <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain flex flex-col fade-enter">
+    <div className="hp-stage relative min-h-[100dvh] overflow-hidden flex flex-col fade-enter">
+      <HpStageBackdrop topStrip />
+      <div className="relative z-10 flex flex-col flex-1 min-h-0">
       <div className="hp-header-bar pt-6 px-6 md:px-0 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full" style={{ background: STAGE_ACCENT }} />
@@ -4320,6 +4881,7 @@ function StageModeView({ onReset }) {
       {state.screen === "results" && (
         <StageResultsScreen state={state} dispatch={dispatch} onExit={onReset} />
       )}
+      </div>
     </div>
   );
 }
