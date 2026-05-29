@@ -1,6 +1,6 @@
 // Beat Roulette — UI
 
-const { useState: useStateApp, useEffect: useEffectApp, useRef: useRefApp, useMemo: useMemoApp } = React;
+const { useState: useStateApp, useEffect: useEffectApp, useRef: useRefApp, useMemo: useMemoApp, useCallback: useCallbackApp, useReducer: useReducerApp } = React;
 
 // ---------- Helpers ----------
 const cx = (...xs) => xs.filter(Boolean).join(" ");
@@ -706,7 +706,7 @@ function HomeStageShell({ children }) {
     <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain fade-enter">
       <DriftingNotes count={18} />
       <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint pointer-events-none"></div>
-      <div className="relative z-10 flex flex-col min-h-[100dvh] pb-5 overflow-y-auto overflow-x-hidden">{children}</div>
+      <div className="hp-stage-inner relative z-10 flex flex-col min-h-[100dvh] pb-5 overflow-y-auto overflow-x-hidden">{children}</div>
       <div className="absolute bottom-0 left-0 right-0 h-[14px] hp-screenprint pointer-events-none"></div>
     </div>
   );
@@ -715,7 +715,7 @@ function HomeStageShell({ children }) {
 function HomeHeader({ subtitle, onBack, backLabel, right }) {
   return (
     <>
-      <div className="pt-6 px-6 flex items-center justify-between gap-3">
+      <div className="hp-header-bar pt-6 px-6 md:px-0 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           {onBack && (
             <button
@@ -730,12 +730,12 @@ function HomeHeader({ subtitle, onBack, backLabel, right }) {
             </button>
           )}
           <div className="w-2 h-2 rounded-full bg-[var(--hp-gold)] shrink-0"></div>
-          <div className="font-display text-[14px] tracking-[0.32em] text-white/85 truncate">BEAT ROULETTE</div>
+          <div className="font-display landing-nav tracking-[0.32em] text-white/85 truncate">BEAT ROULETTE</div>
         </div>
         {right}
       </div>
       {subtitle && (
-        <div className="px-6 mt-1 font-mono text-[10px] uppercase tracking-[0.24em] text-white/40">{subtitle}</div>
+        <div className="hp-header-bar px-6 md:px-0 mt-1 font-mono landing-tagline uppercase tracking-[0.24em] text-white/40">{subtitle}</div>
       )}
     </>
   );
@@ -900,6 +900,91 @@ function PlayerCountSlider({ value, onChange }) {
   );
 }
 
+// ---------- Home mode cards ----------
+function ModeIconFlip() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function ModeIconParty() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="16" cy="10" r="2.5" />
+      <path d="M4 20c0-3 2.5-5 5-5s5 2 5 5M14 20c0-2.5 1.5-4 4-4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ModeIconStage() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="9" y="2" width="6" height="10" rx="3" />
+      <path d="M6 12h12v2a6 6 0 0 1-12 0v-2z" />
+      <line x1="12" y1="20" x2="12" y2="22" strokeLinecap="round" />
+      <line x1="8" y1="22" x2="16" y2="22" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function HomeModeCard({ title, description, accent, icon, onClick, delayClass, variant }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx(
+        "home-mode-card btn-in w-full rounded-2xl border p-4 text-left bg-black/45 backdrop-blur-sm",
+        variant === "flip" && "home-mode-card--flip",
+        variant === "party" && "home-mode-card--party",
+        variant === "stage" && "home-mode-card--stage",
+        delayClass
+      )}
+      style={{
+        borderColor: "rgba(var(--mode-accent-rgb), 0.33)",
+        boxShadow: "0 8px 32px -10px rgba(var(--mode-accent-rgb), 0.22)",
+        color: accent,
+      }}
+    >
+      <div className="home-mode-card__inner">
+        <div
+          className="home-mode-card__icon w-12 h-12 rounded-xl grid place-items-center shrink-0"
+          style={{ background: "rgba(var(--mode-accent-rgb), 0.14)", color: "var(--mode-accent)" }}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div
+            className="home-mode-card__title font-display text-[22px] tracking-[0.12em]"
+            style={{ color: "var(--mode-accent)" }}
+          >
+            {title}
+          </div>
+          <div className="home-mode-card__desc mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50 leading-relaxed">
+            {description}
+          </div>
+        </div>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--mode-accent)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className="home-mode-card__arrow shrink-0 mt-1"
+        >
+          <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+        </svg>
+      </div>
+    </button>
+  );
+}
+
 // ---------- HomeScreen — cinematic landing ----------
 function getWheelRotationDeg(el) {
   const tr = window.getComputedStyle(el).transform;
@@ -921,7 +1006,7 @@ function setWheelTransform(el, angleDeg) {
   el.style.transform = `rotate3d(0, 0, 1, ${angleDeg}deg)`;
 }
 
-function HomeScreen({ onMultiDevice, onSoloShowdown }) {
+function HomeScreen({ onPartyMode, onFlipMode, onStageMode }) {
   const wheelRef = useRefApp(null);
   const wheelMotionRef = useRefApp({
     angle: 0,
@@ -1014,7 +1099,7 @@ function HomeScreen({ onMultiDevice, onSoloShowdown }) {
   };
 
   return (
-    <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain">
+    <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain flex flex-col">
       {/* Drifting notes */}
       <DriftingNotes count={18} />
 
@@ -1022,85 +1107,93 @@ function HomeScreen({ onMultiDevice, onSoloShowdown }) {
       <div className="absolute top-0 left-0 right-0 h-[26px] hp-screenprint"></div>
 
       {/* Header label — print-style */}
-      <div className="relative z-10 pt-6 px-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[var(--hp-gold)]"></div>
-          <div className="font-display text-[14px] tracking-[0.32em] text-white/80">BEAT ROULETTE</div>
+      <div className="hp-header-bar relative z-10 pt-6 px-6 md:px-0 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-2 h-2 rounded-full bg-[var(--hp-gold)] shrink-0"></div>
+          <div className="font-display landing-nav tracking-[0.32em] text-white/80 truncate">BEAT ROULETTE</div>
         </div>
-        <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/40">
+        <div className="font-mono landing-tagline uppercase tracking-[0.24em] text-white/40 shrink-0">
           Est. 2026 · Side A
         </div>
       </div>
 
-      {/* Star burst — tap to ramp wheel spin */}
-      <button
-        type="button"
-        onClick={handlePressSpin}
-        aria-label="Press spin"
-        className="absolute right-3 sm:right-6 top-[88px] z-20 hidden sm:grid star-burst cursor-pointer transition-transform hover:scale-105 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
-      >
-        <span className="text-white pointer-events-none">
-          <span className="block text-[10px] tracking-[0.12em]">PRESS</span>
-          <span className="block text-[22px]">SPIN</span>
-        </span>
-      </button>
-
-      {/* Wheel + pin */}
-      <div className="relative z-10 mt-4 mx-auto" style={{ width: "min(360px, 88vw)", aspectRatio: "1 / 1" }}>
-        <div className="absolute inset-0 wheel-glow"></div>
-        <div className="absolute inset-0 wheel-in">
-          <div ref={wheelRef} className="absolute inset-0">
-            <WheelSVG />
+      <div className="landing-layout relative z-10 flex-1">
+        {/* Copy — left on desktop, below wheel on mobile */}
+        <div className="landing-copy px-6 md:px-0 mt-3 md:mt-0 text-center md:text-left">
+          <h1 className="fade-up landing-title font-display text-white tracking-[0.01em]">
+            BEAT<br/>
+            <span style={{ color: "var(--hp-gold)" }}>ROULETTE</span>
+          </h1>
+          <div className="fade-up d1 mt-3 font-mono landing-tagline uppercase tracking-[0.32em] text-white/55">
+            <span style={{ color: "var(--hp-magenta)" }}>★</span> Spin the wheel · Name that tune · Win the night <span style={{ color: "var(--hp-magenta)" }}>★</span>
           </div>
-          {/* Pin — wrapper holds position; inner bounce must not override translateX */}
-          <div
-            className="absolute left-1/2 z-10 -translate-x-1/2 pointer-events-none"
-            style={{ top: "1%", marginTop: "-24px", filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.6))" }}
+
+          <div className="landing-cta-group mode-cards-grid relative z-10 mt-6">
+            <HomeModeCard
+              variant="flip"
+              title="FLIP MODE"
+              description="Spin the wheel · name that tune · quick match up to 5"
+              accent="var(--hp-gold)"
+              icon={<ModeIconFlip />}
+              onClick={onFlipMode}
+              delayClass="btn-in s1"
+            />
+            <HomeModeCard
+              variant="party"
+              title="PARTY MODE"
+              description="Everyone on their own phone · host or join a room"
+              accent="#1DB954"
+              icon={<ModeIconParty />}
+              onClick={onPartyMode}
+              delayClass="btn-in s2"
+            />
+            <HomeModeCard
+              variant="stage"
+              title="STAGE MODE"
+              description="Pick a song · sing the preview · get a pitch score"
+              accent="var(--stage-accent)"
+              icon={<ModeIconStage />}
+              onClick={onStageMode}
+              delayClass="btn-in s3"
+            />
+          </div>
+        </div>
+
+        {/* Wheel + pin — right on desktop */}
+        <div className="landing-wheel relative z-10 mt-4 md:mt-0">
+          <button
+            type="button"
+            onClick={handlePressSpin}
+            aria-label="Press spin"
+            className="absolute right-0 md:-right-2 top-0 z-20 hidden sm:grid star-burst cursor-pointer transition-transform hover:scale-105 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
           >
-            <div className="pin-bounce inline-flex justify-center">
-              <WheelPin />
+            <span className="text-white pointer-events-none">
+              <span className="block text-[10px] tracking-[0.12em]">PRESS</span>
+              <span className="block text-[22px]">SPIN</span>
+            </span>
+          </button>
+
+          <div className="wheel-size">
+            <div className="absolute inset-0 wheel-glow"></div>
+            <div className="absolute inset-0 wheel-in">
+              <div ref={wheelRef} className="absolute inset-0">
+                <WheelSVG />
+              </div>
+              <div
+                className="absolute left-1/2 z-10 -translate-x-1/2 pointer-events-none"
+                style={{ top: "1%", marginTop: "-24px", filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.6))" }}
+              >
+                <div className="pin-bounce inline-flex justify-center">
+                  <WheelPin />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Title + tagline */}
-      <div className="relative z-10 px-6 mt-3 text-center">
-        <h1 className="fade-up font-display text-white leading-[0.86] tracking-[0.01em]" style={{ fontSize: "clamp(64px, 16vw, 104px)" }}>
-          BEAT<br/>
-          <span style={{ color: "var(--hp-gold)" }}>ROULETTE</span>
-        </h1>
-        <div className="fade-up d1 mt-3 font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
-          <span style={{ color: "var(--hp-magenta)" }}>★</span> Spin the wheel · Name that tune · Win the night <span style={{ color: "var(--hp-magenta)" }}>★</span>
-        </div>
-      </div>
-
-      {/* CTA buttons */}
-      <div className="relative z-10 px-6 mt-6 max-w-[420px] mx-auto">
-        <button
-          type="button"
-          onClick={onMultiDevice}
-          className="btn-in s1 btn-spotify w-full rounded-xl px-5 py-4 font-display tracking-[0.14em] text-[22px]"
-        >
-          PARTY MODE
-        </button>
-        <div className="btn-in s1 mt-1.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-          Everyone on their own phone · host or join a room
-        </div>
-
-        <HpGoldBtn
-          onClick={onSoloShowdown}
-          className="btn-in s2 mt-5 py-4 text-[22px]"
-        >
-          SOLO SHOWDOWN
-        </HpGoldBtn>
-        <div className="btn-in s2 mt-1.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-          Kahoot-style guessing · auto-match with up to 5 players
-        </div>
-      </div>
-
       {/* Marquee strip at bottom */}
-      <div className="relative z-10 mt-4 border-y border-white/10 bg-black/30 overflow-hidden">
+      <div className="hp-marquee-full relative z-10 mt-4 border-y border-white/10 bg-black/30 overflow-hidden">
         <div className="marquee-track flex whitespace-nowrap py-2 font-display tracking-[0.2em] text-[18px]">
           {Array.from({ length: 2 }).map((_, k) => (
             <div key={k} className="flex items-center shrink-0" style={{ width: "max-content" }}>
@@ -1123,9 +1216,9 @@ function HomeScreen({ onMultiDevice, onSoloShowdown }) {
   );
 }
 
-// ---------- StartScreen — choose Beat Roulette or Solo Showdown ----------
+// ---------- StartScreen — FLIP / PARTY / STAGE modes ----------
 function StartScreen({ onChoose }) {
-  const [view, setView] = useStateApp("home"); // home | multi | host | join | solo
+  const [view, setView] = useStateApp("home"); // home | party | host | join | flip
   const [name, setName] = useStateApp("");
   const [code, setCode] = useStateApp("");
   const [roundPick, setRoundPick] = useStateApp(3);
@@ -1166,18 +1259,19 @@ function StartScreen({ onChoose }) {
   if (view === "home") {
     return (
       <HomeScreen
-        onMultiDevice={() => setView("multi")}
-        onSoloShowdown={() => setView("solo")}
+        onPartyMode={() => setView("party")}
+        onFlipMode={() => setView("flip")}
+        onStageMode={() => onChoose({ game: "stage" })}
       />
     );
   }
 
   // ---- Multi-device: host or join ----
-  if (view === "multi") {
+  if (view === "party") {
     return (
       <HomeStageShell>
         <HomeHeader subtitle="Multi-device" onBack={() => setView("home")} backLabel="Back" />
-        <div className="px-6 mt-4 flex-1">
+        <div className="stage-content px-6 mt-4 flex-1">
           <HpSectionTitle>
             YOUR PHONE, <span style={{ color: "var(--hp-gold)" }}>YOUR TURN</span>
           </HpSectionTitle>
@@ -1196,8 +1290,8 @@ function StartScreen({ onChoose }) {
   if (view === "host") {
     return (
       <HomeStageShell>
-        <HomeHeader subtitle="Hosting" onBack={() => setView("multi")} backLabel="Back" />
-        <div className="px-6 mt-4 flex-1 pb-8">
+        <HomeHeader subtitle="Hosting" onBack={() => setView("party")} backLabel="Back" />
+        <div className="stage-content px-6 mt-4 flex-1 pb-8">
           <HpSectionTitle>
             OPEN A <span style={{ color: "var(--hp-gold)" }}>ROOM</span>
           </HpSectionTitle>
@@ -1219,8 +1313,8 @@ function StartScreen({ onChoose }) {
   if (view === "join") {
     return (
       <HomeStageShell>
-        <HomeHeader subtitle="Joining" onBack={() => setView("multi")} backLabel="Back" />
-        <div className="px-6 mt-4 flex-1 pb-8">
+        <HomeHeader subtitle="Joining" onBack={() => setView("party")} backLabel="Back" />
+        <div className="stage-content px-6 mt-4 flex-1 pb-8">
           <HpSectionTitle>
             GOT THE <span style={{ color: "var(--hp-gold)" }}>CODE?</span>
           </HpSectionTitle>
@@ -1249,8 +1343,8 @@ function StartScreen({ onChoose }) {
     );
   }
 
-  if (view === "solo") {
-    return <SoloShowdownSetupScreen onChoose={onChoose} onBack={() => setView("home")} />;
+  if (view === "flip") {
+    return <FlipModeSetupScreen onChoose={onChoose} onBack={() => setView("home")} />;
   }
 
   return null;
@@ -1281,7 +1375,7 @@ function ConnectionGate({ status, mode, onReset }) {
           <>
             <div className="mx-auto w-10 h-10 rounded-full border-2 border-[#282828] border-t-[#1DB954] animate-spin"></div>
             <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-white/45">
-              {mode.kind === "host" ? "Opening room" : "Joining room"}
+              {mode.kind === "host" ? "Opening room" : mode.kind === "flip" ? "Finding match" : "Joining room"}
             </div>
             <div className="mt-1 text-base font-medium tabular">{mode.code}</div>
           </>
@@ -1291,8 +1385,8 @@ function ConnectionGate({ status, mode, onReset }) {
   );
 }
 
-// ---------- Solo Showdown ----------
-const SOLO_LENGTHS = [
+// ---------- Flip Mode ----------
+const FLIP_LENGTHS = [
   { id: "short", label: "Short", rounds: 3 },
   { id: "medium", label: "Medium", rounds: 5 },
   { id: "long", label: "Long", rounds: 7 },
@@ -1307,18 +1401,18 @@ function hashStringToSeed(str) {
   return h >>> 0;
 }
 
-function soloRoomIdForNow(lengthId) {
+function flipRoomIdForNow(lengthId) {
   const bucket = Math.floor(Date.now() / 30000);
-  return `ss-${lengthId}-${bucket.toString(36)}`;
+  return `flip-${lengthId}-${bucket.toString(36)}`;
 }
 
-function SoloLengthPicker({ value, onChange }) {
-  const selected = SOLO_LENGTHS.find(x => x.id === value) || SOLO_LENGTHS[0];
+function FlipLengthPicker({ value, onChange }) {
+  const selected = FLIP_LENGTHS.find(x => x.id === value) || FLIP_LENGTHS[0];
   return (
     <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
       <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Game length</div>
       <div className="grid grid-cols-3 gap-2">
-        {SOLO_LENGTHS.map(opt => (
+        {FLIP_LENGTHS.map(opt => (
           <button
             key={opt.id}
             type="button"
@@ -1352,17 +1446,17 @@ function SoloLengthPicker({ value, onChange }) {
   );
 }
 
-function SoloShowdownSetupScreen({ onChoose, onBack }) {
+function FlipModeSetupScreen({ onChoose, onBack }) {
   const [name, setName] = useStateApp("");
   const [lengthId, setLengthId] = useStateApp("short");
-  const selected = SOLO_LENGTHS.find(x => x.id === lengthId) || SOLO_LENGTHS[0];
+  const selected = FLIP_LENGTHS.find(x => x.id === lengthId) || FLIP_LENGTHS[0];
 
   const start = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const roomId = soloRoomIdForNow(lengthId);
+    const roomId = flipRoomIdForNow(lengthId);
     onChoose({
-      game: "solo",
+      game: "flip",
       name: trimmed,
       lengthId,
       roundCount: selected.rounds,
@@ -1373,8 +1467,8 @@ function SoloShowdownSetupScreen({ onChoose, onBack }) {
 
   return (
     <HomeStageShell>
-      <HomeHeader subtitle="Solo Showdown" onBack={onBack} backLabel="Back" />
-      <div className="px-6 mt-4 flex-1 pb-8">
+      <HomeHeader subtitle="Flip Mode" onBack={onBack} backLabel="Back" />
+      <div className="stage-content px-6 mt-4 flex-1 pb-8">
         <HpSectionTitle>
           FIND A <span style={{ color: "var(--hp-gold)" }}>MATCH</span>
         </HpSectionTitle>
@@ -1383,7 +1477,7 @@ function SoloShowdownSetupScreen({ onChoose, onBack }) {
         </HpSectionDesc>
 
         <div className="mt-6 space-y-4">
-          <SoloLengthPicker value={lengthId} onChange={setLengthId} />
+          <FlipLengthPicker value={lengthId} onChange={setLengthId} />
           <HpPanel>
             <HpField label="Your name" value={name} onChange={setName} placeholder="e.g. Maya" autoFocus maxLength={20} />
           </HpPanel>
@@ -1394,7 +1488,7 @@ function SoloShowdownSetupScreen({ onChoose, onBack }) {
   );
 }
 
-function SoloLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
+function FlipLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
   const players = state.players || [];
   const canStart = isHost && state.chartTracks && state.chartTracks.length >= 8;
 
@@ -1406,7 +1500,7 @@ function SoloLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
         backLabel="Leave room"
       />
 
-      <div className="px-6 mt-2 flex-1 pb-6">
+      <div className="stage-content px-6 mt-2 flex-1 pb-6">
         <HpSectionTitle>
           {isHost ? (
             <>YOU'RE <span style={{ color: "var(--hp-gold)" }}>HOSTING</span></>
@@ -1417,7 +1511,7 @@ function SoloLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
         <HpSectionDesc>
           {isHost
             ? "Wait for players to join nearby, then start when you're ready."
-            : "Hang tight — the host starts the showdown when everyone's set."}
+            : "Hang tight — the host starts the round when everyone's set."}
         </HpSectionDesc>
 
         <div className="mt-5">
@@ -1476,7 +1570,7 @@ function SoloLobbyScreen({ state, isHost, dispatch, deviceId, onLeave }) {
   );
 }
 
-function SoloRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+function FlipRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   const round = state.round;
   const tracks = state.chartTracks || [];
   const audioRef = useRefApp(null);
@@ -1560,7 +1654,7 @@ function SoloRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
         }
       />
 
-      <div className="px-6 mt-2 flex-1 pb-28">
+      <div className="stage-content px-6 mt-2 flex-1 pb-28">
         <HpPanel className="p-5 overflow-hidden">
           <div className="flex flex-col items-center">
             <div className="relative grid place-items-center" style={{ width: 168, height: 168 }}>
@@ -1636,7 +1730,7 @@ function SoloRoundScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   );
 }
 
-function SoloResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+function FlipResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   const tracks = state.chartTracks || [];
   const round = state.round;
   const correct = round ? tracks.find(t => t.deezerId === round.correctId) : null;
@@ -1671,7 +1765,7 @@ function SoloResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   return (
     <HomeStageShell>
       <HomeHeader subtitle="Reveal" onBack={onLeave} backLabel="Leave game" />
-      <div className="flex-1 pb-6">
+      <div className="stage-content flex-1 pb-6">
         <div className="px-6 mt-2">
           <HpSectionTitle>
             IT WAS <span style={{ color: "var(--hp-gold)" }}>{correct ? correct.title.toUpperCase() : "—"}</span>
@@ -1753,7 +1847,7 @@ function SoloResultsScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   );
 }
 
-function SoloFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
+function FlipFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   const sorted = [...(state.players || [])]
     .map(p => ({ deviceId: p.deviceId, name: p.name, score: state.scores[p.deviceId] || 0 }))
     .sort((a, b) => b.score - a.score);
@@ -1768,7 +1862,7 @@ function SoloFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   return (
     <HomeStageShell>
       <HomeHeader subtitle="Final score" onBack={onLeave} backLabel="Leave game" />
-      <div className="relative z-10 flex-1 pb-10">
+      <div className="stage-content relative z-10 flex-1 pb-10">
         <div className="mx-6 mt-2">
           <HpPanel className="p-6">
             <div className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>
@@ -1828,22 +1922,31 @@ function SoloFinalScreen({ state, dispatch, isHost, deviceId, onLeave }) {
   );
 }
 
-function SoloShowdownView({ choice, onReset }) {
+function FlipModeView({ choice, onReset }) {
   const mode = useMemoApp(
     () => ({ roomId: choice.roomId, roundCount: choice.roundCount, seed: choice.seed }),
     [choice.roomId, choice.roundCount, choice.seed]
   );
-  const { deviceId, state, dispatch, status, isHost } = useSoloSession(mode, choice.name);
+  const useFlip = window.useFlipSession;
+  if (!useFlip) {
+    return (
+      <div className="p-8 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+        Flip Mode failed to load. Refresh the page.
+        <button type="button" onClick={onReset} className="block mx-auto mt-4 btn-spotify rounded-xl px-5 py-2.5 font-display">BACK</button>
+      </div>
+    );
+  }
+  const { deviceId, state, dispatch, status, isHost } = useFlip(mode, choice.name);
 
   if (status.kind !== "ready") {
-    return <ConnectionGate status={status} mode={{ kind: "solo", code: choice.roomId }} onReset={onReset} />;
+    return <ConnectionGate status={status} mode={{ kind: "flip", code: choice.roomId }} onReset={onReset} />;
   }
 
   const common = { state, dispatch, isHost, deviceId, onLeave: onReset };
-  if (state.phase === "lobby") return <SoloLobbyScreen {...common} />;
-  if (state.phase === "round") return <SoloRoundScreen {...common} />;
-  if (state.phase === "results") return <SoloResultsScreen {...common} />;
-  if (state.phase === "final") return <SoloFinalScreen {...common} />;
+  if (state.phase === "lobby") return <FlipLobbyScreen {...common} />;
+  if (state.phase === "round") return <FlipRoundScreen {...common} />;
+  if (state.phase === "results") return <FlipResultsScreen {...common} />;
+  if (state.phase === "final") return <FlipFinalScreen {...common} />;
   return null;
 }
 
@@ -2108,7 +2211,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
         right={<RoomChip code={code} mode={mode} variant="home" />}
       />
 
-      <div className="px-6 mt-2 flex-1 pb-6">
+      <div className="stage-content px-6 mt-2 flex-1 pb-6">
         <HpSectionTitle>
           {isHost ? (
             <>YOU'RE <span style={{ color: "var(--hp-gold)" }}>HOSTING</span></>
@@ -2599,7 +2702,7 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
         }
       />
 
-      <div className="px-6 mt-2 flex-1">
+      <div className="stage-content px-6 mt-2 flex-1 pb-28">
         <HpPanel className="p-5 overflow-hidden">
           <div className="flex flex-col items-center">
             <div className="relative grid place-items-center" style={{ width: 168, height: 168 }}>
@@ -2935,7 +3038,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
     return (
       <HomeStageShell>
         <HomeHeader subtitle="Reveal" onBack={onLeave} backLabel="Leave game" />
-        <div className="flex-1">{content}</div>
+        <div className="stage-content flex-1">{content}</div>
       </HomeStageShell>
     );
   }
@@ -2943,7 +3046,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
   return (
     <div className="fade-enter relative">
       <TopBar subtitle="Reveal" onBack={onLeave} backLabel="Leave game" />
-      {content}
+      <div className="stage-content">{content}</div>
     </div>
   );
 }
@@ -2988,7 +3091,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
         ))}
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-10 stage-content">
         {cinematic ? (
           <HomeHeader subtitle="Final score" onBack={onLeave} backLabel="Leave game" />
         ) : (
@@ -3124,7 +3227,16 @@ function GameView({ choice, onReset }) {
     () => ({ kind: choice.kind, code: choice.code, songsPerPlayer: choice.songsPerPlayer }),
     [choice.kind, choice.code, choice.songsPerPlayer]
   );
-  const { deviceId, state, dispatch, status, isHost } = useSession(mode, choice.name);
+  const useSess = window.useSession;
+  if (!useSess) {
+    return (
+      <div className="p-8 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+        Party Mode failed to load. Refresh the page.
+        <button type="button" onClick={onReset} className="block mx-auto mt-4 btn-spotify rounded-xl px-5 py-2.5 font-display">BACK</button>
+      </div>
+    );
+  }
+  const { deviceId, state, dispatch, status, isHost } = useSess(mode, choice.name);
 
   // Splash auto-advances; only host triggers it
   const enterRound = useRefApp(() => {});
@@ -3164,6 +3276,981 @@ function GameView({ choice, onReset }) {
   );
 }
 
+// ---------- STAGE MODE ----------
+const STAGE_ACCENT = "#FF2D78";
+const STAGE_PREVIEW_MAX_SEC = 30;
+const PITCH_CLARITY_MIN = 0.93;
+const PITCH_RMS_MIN = 0.018;
+const PITCH_HZ_MIN = 80;
+const PITCH_HZ_MAX = 1200;
+const STAGE_SYNC_STEP_SEC = 0.5;
+const STAGE_SYNC_MAX_SEC = 15;
+
+const SCORE_LABELS = [
+  { min: 100, max: 100, label: "⭐ PITCH PERFECT" },
+  { min: 80, max: 99, label: "🎤 STAGE READY" },
+  { min: 60, max: 79, label: "🎵 FEELING IT" },
+  { min: 40, max: 59, label: "🚿 SHOWER SINGER" },
+  { min: 20, max: 39, label: "📻 STATIC ENERGY" },
+  { min: 0, max: 19, label: "🔇 THE MIC WAS ON?" },
+];
+
+function clamp(n, lo, hi) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function formatStageTime(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+/** Deezer 30s previews: 30–60s for long tracks, last 30s for medium, full song if short. */
+function computeDeezerPreviewStartSec(durationSec) {
+  const d = durationSec > 0 ? durationSec : 0;
+  if (d > 60) return 30;
+  if (d > 30) return d - 30;
+  return 0;
+}
+
+function stageTrackFromDeezer(t) {
+  if (!t || !t.id) return null;
+  const durationSec = t.duration ? Number(t.duration) : 0;
+  return {
+    deezerTrackId: String(t.id),
+    title: String(t.title_short || t.title || "").trim(),
+    artist: (t.artist && t.artist.name) ? String(t.artist.name).trim() : "Unknown artist",
+    albumArt: (t.album && t.album.cover_medium) || (t.album && t.album.cover_small) || null,
+    previewUrl: t.preview ? String(t.preview) : null,
+    durationSec,
+    previewStartSec: computeDeezerPreviewStartSec(durationSec),
+  };
+}
+
+async function enrichStageTrack(track) {
+  if (track.durationSec > 0 && track.previewStartSec != null) return track;
+  try {
+    const url = `https://api.deezer.com/track/${track.deezerTrackId}`;
+    const data = await fetchWithCorsFallback(url);
+    const durationSec = data && data.duration ? Number(data.duration) : 0;
+    return {
+      ...track,
+      durationSec,
+      previewStartSec: computeDeezerPreviewStartSec(durationSec),
+    };
+  } catch (e) {
+    return { ...track, durationSec: 0, previewStartSec: 30 };
+  }
+}
+
+function getStageSongTime(audioCurrentTime, track, lyricsOffset) {
+  const start = track.previewStartSec != null ? track.previewStartSec : 30;
+  return audioCurrentTime + start + (lyricsOffset || 0);
+}
+
+function rmsFromTimeDomain(buffer) {
+  let sum = 0;
+  for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+  return Math.sqrt(sum / buffer.length);
+}
+
+function initialStageState() {
+  return {
+    screen: "search",
+    selectedTrack: null,
+    lyrics: [],
+    plainLyrics: "",
+    lyricsOffset: 0,
+    lyricsStatus: "loading",
+    micStatus: "idle",
+    performanceStatus: "idle",
+    recordedPitches: [],
+    totalFrames: 0,
+    voicedFrames: 0,
+    score: null,
+    scoreLabel: null,
+    previewError: null,
+    searchLoading: false,
+    searchError: null,
+    micStream: null,
+    performanceRun: 0,
+  };
+}
+
+function scoreLabelFor(score) {
+  if (score === 0) return "NO SIGNAL — was your mic on?";
+  const row = SCORE_LABELS.find((r) => score >= r.min && score <= r.max);
+  return row ? row.label : SCORE_LABELS[SCORE_LABELS.length - 1].label;
+}
+
+function computeStageScore(recordedPitches, totalFrames, voicedFrames) {
+  if (totalFrames <= 0) return { score: 0, label: "NO SIGNAL — was your mic on?" };
+  const voicedRatio = voicedFrames / totalFrames;
+  if (voicedRatio < 0.2) return { score: 0, label: "NO SIGNAL — was your mic on?" };
+
+  const hzValues = recordedPitches.map((p) => p.hz);
+  let pitchStability = 0;
+  if (hzValues.length >= 2) {
+    const mean = hzValues.reduce((a, b) => a + b, 0) / hzValues.length;
+    const variance = hzValues.reduce((s, h) => s + (h - mean) * (h - mean), 0) / hzValues.length;
+    pitchStability = Math.sqrt(variance);
+  }
+  const stabilityScore = Math.max(0, 1 - pitchStability / 200);
+  const rawScore = voicedRatio * 60 + stabilityScore * 40;
+  const score = Math.round(clamp(rawScore, 0, 100));
+  return { score, label: scoreLabelFor(score) };
+}
+
+function parseLrc(syncedLyrics) {
+  if (!syncedLyrics || typeof syncedLyrics !== "string") return [];
+  const lines = [];
+  const text = syncedLyrics.replace(/\r\n/g, "\n");
+  const lineRe = /\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)/g;
+  let m;
+  while ((m = lineRe.exec(text)) !== null) {
+    const min = parseInt(m[1], 10);
+    const sec = parseFloat(m[2]);
+    const lyricText = (m[3] || "").trim();
+    if (lyricText) lines.push({ timeSeconds: min * 60 + sec, text: lyricText });
+  }
+  return lines.sort((a, b) => a.timeSeconds - b.timeSeconds);
+}
+
+async function fetchWithCorsFallback(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("http");
+    return await res.json();
+  } catch (e) {
+    const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    const res = await fetch(proxy);
+    if (!res.ok) throw new Error("proxy");
+    return await res.json();
+  }
+}
+
+async function stageDeezerSearch(query) {
+  const url = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=8`;
+  const data = await fetchWithCorsFallback(url);
+  const raw = (data && data.data) || [];
+  return raw.map(stageTrackFromDeezer).filter((t) => t && t.title);
+}
+
+async function fetchStageLyrics(title, artist) {
+  const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
+  try {
+    const results = await fetchWithCorsFallback(url);
+    const list = Array.isArray(results) ? results : [];
+    const hit = list.find((r) => r.syncedLyrics) || list[0];
+    if (!hit) return { status: "none", lyrics: [], plain: "" };
+    if (hit.syncedLyrics) {
+      const parsed = parseLrc(hit.syncedLyrics);
+      if (parsed.length > 0) return { status: "synced", lyrics: parsed, plain: hit.plainLyrics || "" };
+    }
+    if (hit.plainLyrics) {
+      return { status: "plain", lyrics: [], plain: String(hit.plainLyrics) };
+    }
+    return { status: "none", lyrics: [], plain: "" };
+  } catch (e) {
+    return { status: "none", lyrics: [], plain: "" };
+  }
+}
+
+function loadLyricsOffset(trackId) {
+  try {
+    const v = localStorage.getItem(`stage-lyrics-offset-${trackId}`);
+    return v ? parseFloat(v) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function saveLyricsOffset(trackId, offset) {
+  try {
+    localStorage.setItem(`stage-lyrics-offset-${trackId}`, String(offset));
+  } catch (e) {}
+}
+
+function waitForPitchy() {
+  return new Promise((resolve) => {
+    if (window.PitchDetector) {
+      resolve(window.PitchDetector);
+      return;
+    }
+    const onReady = () => {
+      window.removeEventListener("pitchy-ready", onReady);
+      resolve(window.PitchDetector);
+    };
+    window.addEventListener("pitchy-ready", onReady);
+    setTimeout(() => resolve(window.PitchDetector || null), 8000);
+  });
+}
+
+function StageSearchScreen({ state, dispatch }) {
+  const [query, setQuery] = useStateApp("");
+  const [results, setResults] = useStateApp([]);
+  const debRef = useRefApp(null);
+  const snippetRef = useRefApp(null);
+
+  useEffectApp(() => {
+    if (debRef.current) clearTimeout(debRef.current);
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      dispatch({ type: "setSearchLoading", loading: false });
+      return;
+    }
+    dispatch({ type: "setSearchLoading", loading: true });
+    debRef.current = setTimeout(async () => {
+      try {
+        const tracks = await stageDeezerSearch(q);
+        setResults(tracks);
+        dispatch({ type: "setSearchError", error: null });
+      } catch (e) {
+        setResults([]);
+        dispatch({ type: "setSearchError", error: "Search failed — check your connection" });
+      } finally {
+        dispatch({ type: "setSearchLoading", loading: false });
+      }
+    }, 300);
+    return () => { if (debRef.current) clearTimeout(debRef.current); };
+  }, [query, dispatch]);
+
+  const playSnippet = (url) => {
+    if (!url) return;
+    if (snippetRef.current) {
+      snippetRef.current.pause();
+      snippetRef.current = null;
+    }
+    const a = new Audio(url);
+    snippetRef.current = a;
+    a.volume = 0.85;
+    a.play().then(() => {
+      setTimeout(() => { a.pause(); a.currentTime = 0; }, 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="stage-shell stage-content flex-1 px-6 pb-8">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STAGE_ACCENT }} />
+        <h2 className="font-display text-[28px] tracking-[0.08em]" style={{ color: STAGE_ACCENT }}>STAGE MODE</h2>
+      </div>
+      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50 mb-4">
+        Search a track · sing the 30s preview · get scored
+      </p>
+
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search songs on Deezer…"
+        className="stage-search-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+        autoFocus
+      />
+
+      {state.searchLoading && (
+        <div className="mt-4 space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="stage-skeleton h-16 rounded-xl" />
+          ))}
+        </div>
+      )}
+
+      {!state.searchLoading && query.trim().length >= 2 && results.length === 0 && (
+        <div className="mt-6 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">
+          No tracks found — try another search
+        </div>
+      )}
+
+      {state.searchError && (
+        <div className="mt-3 font-mono text-[11px] text-[var(--hp-magenta)]">{state.searchError}</div>
+      )}
+
+      <div className="mt-4 space-y-2">
+        {results.map((track) => (
+          <div
+            key={track.deezerTrackId}
+            className="stage-result-card rounded-xl border border-white/12 bg-black/40 p-3 flex items-center gap-3"
+          >
+            {track.albumArt ? (
+              <img src={track.albumArt} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-white/10" />
+            ) : (
+              <div className="w-14 h-14 rounded-lg bg-[#222] shrink-0" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold truncate">{track.title}</div>
+              <div className="text-[11px] text-white/50 truncate">{track.artist}</div>
+              <button
+                type="button"
+                disabled={!track.previewUrl}
+                onClick={() => playSnippet(track.previewUrl)}
+                className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] hover:opacity-80 disabled:opacity-30"
+                style={{ color: STAGE_ACCENT }}
+              >
+                ▶ Preview
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={!track.previewUrl}
+              onClick={async () => {
+                const enriched = await enrichStageTrack(track);
+                dispatch({ type: "selectTrack", track: enriched });
+              }}
+              className="stage-select-btn shrink-0 rounded-lg px-3 py-2 font-display text-[14px] tracking-[0.1em]"
+            >
+              SELECT
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MicLevelBars({ level }) {
+  const bars = 5;
+  return (
+    <div className="flex items-end gap-1 h-8" aria-hidden="true">
+      {Array.from({ length: bars }).map((_, i) => {
+        const thresh = (i + 1) / bars;
+        const active = level >= thresh * 0.85;
+        return (
+          <div
+            key={i}
+            className="w-1.5 rounded-sm transition-all duration-75"
+            style={{
+              height: `${8 + i * 5}px`,
+              background: active ? STAGE_ACCENT : "rgba(255,255,255,0.15)",
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function StageReadyScreen({ state, dispatch, onBack }) {
+  const track = state.selectedTrack;
+  const micStreamRef = useRefApp(null);
+  const analyserRef = useRefApp(null);
+  const ctxRef = useRefApp(null);
+  const rafRef = useRefApp(null);
+  const [micLevel, setMicLevel] = useStateApp(0);
+
+  useEffectApp(() => {
+    if (!track) return;
+    const offset = loadLyricsOffset(track.deezerTrackId);
+    dispatch({ type: "setLyricsOffset", offset });
+    dispatch({ type: "setLyricsStatus", status: "loading" });
+    enrichStageTrack(track).then((enriched) => {
+      dispatch({ type: "setTrackMeta", track: enriched });
+    });
+    fetchStageLyrics(track.title, track.artist).then((res) => {
+      dispatch({
+        type: "lyricsLoaded",
+        status: res.status,
+        lyrics: res.lyrics,
+        plain: res.plain,
+      });
+    });
+  }, [track.deezerTrackId, track.title, track.artist, dispatch]);
+
+  useEffectApp(() => () => {
+    if (ctxRef.current) {
+      try { ctxRef.current.close(); } catch (e) {}
+      ctxRef.current = null;
+    }
+    analyserRef.current = null;
+  }, []);
+
+  useEffectApp(() => {
+    if (state.micStatus !== "granted") return;
+    let cancelled = false;
+    const tick = () => {
+      const analyser = analyserRef.current;
+      if (analyser && !cancelled) {
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i];
+        setMicLevel(sum / data.length / 255);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [state.micStatus]);
+
+  const requestMic = async () => {
+    dispatch({ type: "setMicStatus", status: "requesting" });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+        },
+      });
+      micStreamRef.current = stream;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      ctxRef.current = ctx;
+      if (ctx.state === "suspended") await ctx.resume();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      dispatch({ type: "setMicStatus", status: "granted" });
+      dispatch({ type: "setMicStream", stream });
+    } catch (e) {
+      dispatch({ type: "setMicStatus", status: "denied" });
+    }
+  };
+
+  if (!track) return null;
+
+  return (
+    <div className="stage-shell stage-content flex-1 px-6 pb-8">
+      <button type="button" onClick={onBack} className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 hover:text-white">
+        ← Back
+      </button>
+
+      <div className="flex items-center gap-4">
+        {track.albumArt && (
+          <img src={track.albumArt} alt="" className="w-20 h-20 rounded-xl object-cover border border-white/15" />
+        )}
+        <div>
+          <div className="font-display text-[24px] leading-tight">{track.title}</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/50">{track.artist}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-white/10 bg-black/35 px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/50 leading-relaxed">
+        Use headphones if you can — stops the preview from confusing the mic and scoring.
+      </div>
+
+      {track.previewStartSec != null && (
+        <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
+          Deezer preview starts at <span style={{ color: STAGE_ACCENT }}>{formatStageTime(track.previewStartSec)}</span> in the full song
+          {track.durationSec > 0 && (
+            <span className="text-white/35"> · track {formatStageTime(track.durationSec)}</span>
+          )}
+        </div>
+      )}
+
+      {state.lyricsStatus === "loading" && (
+        <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Loading lyrics…</div>
+      )}
+      {state.lyricsStatus === "none" && (
+        <div className="mt-4 rounded-xl border border-white/12 bg-black/40 p-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">
+          No lyrics found for this track — you&apos;re freestyling!
+        </div>
+      )}
+      {state.lyricsStatus === "plain" && state.plainLyrics && (
+        <div className="mt-4 rounded-xl border border-white/12 bg-black/40 p-3 max-h-32 overflow-y-auto text-sm text-white/70 whitespace-pre-wrap">
+          {state.plainLyrics.slice(0, 400)}{state.plainLyrics.length > 400 ? "…" : ""}
+        </div>
+      )}
+
+      <div className="mt-8">
+        {state.micStatus === "idle" || state.micStatus === "requesting" ? (
+          <button
+            type="button"
+            onClick={requestMic}
+            disabled={state.micStatus === "requesting"}
+            className="stage-primary-btn w-full rounded-xl py-4 font-display text-[20px] tracking-[0.12em]"
+          >
+            {state.micStatus === "requesting" ? "REQUESTING…" : "ALLOW MICROPHONE"}
+          </button>
+        ) : state.micStatus === "denied" ? (
+          <div className="rounded-xl border border-[var(--hp-magenta)]/40 bg-black/50 p-4 text-sm text-white/80 leading-relaxed">
+            Microphone access is needed to score your performance. Please allow mic access in your browser settings and try again.
+            <button type="button" onClick={requestMic} className="stage-primary-btn block w-full mt-4 rounded-xl py-3 font-display text-[16px]">
+              TRY AGAIN
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-white/12 bg-black/40 p-4">
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/45 mb-2">Mic level</div>
+            <MicLevelBars level={micLevel} />
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        disabled={state.micStatus !== "granted"}
+        onClick={() => dispatch({ type: "goPerformance" })}
+        className="stage-primary-btn w-full mt-6 rounded-xl py-4 font-display text-[22px] tracking-[0.12em] disabled:opacity-35"
+      >
+        START SINGING
+      </button>
+    </div>
+  );
+}
+
+function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) {
+  const track = state.selectedTrack;
+  const audioRef = useRefApp(null);
+  const ctxRef = useRefApp(null);
+  const analyserRef = useRefApp(null);
+  const detectorRef = useRefApp(null);
+  const bufferRef = useRefApp(null);
+  const rafRef = useRefApp(null);
+  const pitchesRef = useRefApp([]);
+  const totalFramesRef = useRefApp(0);
+  const voicedFramesRef = useRefApp(0);
+  const [currentTime, setCurrentTime] = useStateApp(0);
+  const [pitchHz, setPitchHz] = useStateApp(0);
+  const [micLevel, setMicLevel] = useStateApp(0);
+  const [previewFailed, setPreviewFailed] = useStateApp(false);
+
+  const lyrics = state.lyrics;
+  const offset = state.lyricsOffset;
+  const synced = state.lyricsStatus === "synced" && lyrics.length > 0;
+
+  const previewStart = track ? (track.previewStartSec != null ? track.previewStartSec : 30) : 30;
+
+  const activeIndex = useMemoApp(() => {
+    if (!synced || !track) return -1;
+    const songTime = getStageSongTime(currentTime, track, offset);
+    let idx = -1;
+    for (let i = 0; i < lyrics.length; i++) {
+      if (songTime >= lyrics[i].timeSeconds) idx = i;
+      else break;
+    }
+    return idx;
+  }, [currentTime, offset, lyrics, synced, track, previewStart]);
+
+  const finishedRef = useRefApp(false);
+
+  useEffectApp(() => {
+    finishedRef.current = false;
+  }, [performanceRun]);
+
+  const finishPerformance = useCallbackApp(() => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const { score, label } = computeStageScore(
+      pitchesRef.current,
+      totalFramesRef.current,
+      voicedFramesRef.current
+    );
+    dispatch({
+      type: "finishPerformance",
+      recordedPitches: pitchesRef.current,
+      totalFrames: totalFramesRef.current,
+      voicedFrames: voicedFramesRef.current,
+      score,
+      scoreLabel: label,
+    });
+  }, [dispatch]);
+
+  useEffectApp(() => {
+    if (!track || !micStream) return;
+    let cancelled = false;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const run = async () => {
+      const PitchDetector = await waitForPitchy();
+      if (cancelled || !PitchDetector) return;
+
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctxRef.current = ctx;
+        await ctx.resume();
+
+        const micSource = ctx.createMediaStreamSource(micStream);
+        const highpass = ctx.createBiquadFilter();
+        highpass.type = "highpass";
+        highpass.frequency.value = 120;
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.4;
+        micSource.connect(highpass);
+        highpass.connect(analyser);
+        analyserRef.current = analyser;
+
+        const buffer = new Float32Array(analyser.fftSize);
+        bufferRef.current = buffer;
+        detectorRef.current = PitchDetector.forFloat32Array(analyser.fftSize);
+
+        audio.src = track.previewUrl;
+        audio.load();
+
+        const onCanPlay = () => {
+          if (cancelled) return;
+          const duration = Math.min(STAGE_PREVIEW_MAX_SEC, audio.duration || STAGE_PREVIEW_MAX_SEC);
+          dispatch({ type: "setPerformanceStatus", status: "singing" });
+          audio.currentTime = 0;
+
+          const tick = () => {
+            if (cancelled) return;
+
+            const tAudio = audio.currentTime;
+            setCurrentTime(tAudio);
+
+            analyser.getFloatTimeDomainData(buffer);
+            const rms = rmsFromTimeDomain(buffer);
+            setMicLevel(clamp(rms * 5.5, 0, 1));
+
+            totalFramesRef.current += 1;
+            const [pitch, clarity] = detectorRef.current.findPitch(buffer, ctx.sampleRate);
+            const isVoiced = (
+              clarity > PITCH_CLARITY_MIN
+              && pitch > PITCH_HZ_MIN
+              && pitch < PITCH_HZ_MAX
+              && rms > PITCH_RMS_MIN
+            );
+            if (isVoiced) {
+              voicedFramesRef.current += 1;
+              pitchesRef.current.push({ time: tAudio, hz: pitch });
+              setPitchHz(pitch);
+            } else if (rms <= PITCH_RMS_MIN) {
+              setPitchHz(0);
+            }
+
+            const endAt = Math.min(duration, STAGE_PREVIEW_MAX_SEC);
+            if (audio.ended || tAudio >= endAt - 0.05) {
+              finishPerformance();
+              return;
+            }
+            rafRef.current = requestAnimationFrame(tick);
+          };
+
+          audio.play().then(() => {
+            rafRef.current = requestAnimationFrame(tick);
+          }).catch(() => {
+            setPreviewFailed(true);
+          });
+        };
+
+        audio.addEventListener("canplaythrough", onCanPlay, { once: true });
+        audio.addEventListener("error", () => {
+          setPreviewFailed(true);
+        }, { once: true });
+      } catch (e) {
+        setPreviewFailed(true);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      try { audio.pause(); } catch (err) {}
+      try { ctxRef.current && ctxRef.current.close(); } catch (err) {}
+    };
+  }, [track, micStream, dispatch, finishPerformance, performanceRun]);
+
+  const adjustOffset = (delta) => {
+    const next = Math.round((state.lyricsOffset + delta) * 10) / 10;
+    const clamped = clamp(next, -STAGE_SYNC_MAX_SEC, STAGE_SYNC_MAX_SEC);
+    dispatch({ type: "setLyricsOffset", offset: clamped });
+    if (track) saveLyricsOffset(track.deezerTrackId, clamped);
+  };
+
+  const songTimeNow = track ? getStageSongTime(currentTime, track, offset) : 0;
+
+  const progress = clamp(currentTime / STAGE_PREVIEW_MAX_SEC, 0, 1);
+  const secondsLeft = Math.max(0, Math.ceil(STAGE_PREVIEW_MAX_SEC - currentTime));
+  const pitchNorm = pitchHz > 0 ? clamp((pitchHz - 200) / 600, 0, 1) : 0.5;
+
+  if (!track) return null;
+
+  if (previewFailed) {
+    return (
+      <div className="stage-performance flex flex-col items-center justify-center min-h-[70dvh] px-6 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/60">
+          Preview unavailable for this track, try another
+        </p>
+        <button type="button" onClick={() => dispatch({ type: "goSearch" })} className="stage-primary-btn mt-6 rounded-xl px-6 py-3 font-display">
+          NEW SONG
+        </button>
+      </div>
+    );
+  }
+
+  const prevLine = synced && activeIndex > 0 ? lyrics[activeIndex - 1] : null;
+  const currLine = synced && activeIndex >= 0 ? lyrics[activeIndex] : null;
+  const nextLine = synced && activeIndex >= 0 && activeIndex < lyrics.length - 1 ? lyrics[activeIndex + 1] : null;
+
+  return (
+    <div className="stage-performance relative min-h-[100dvh] overflow-hidden flex flex-col">
+      {track.albumArt && (
+        <img
+          src={track.albumArt}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.18] blur-2xl scale-110 pointer-events-none"
+        />
+      )}
+      <div className="stage-spotlight absolute inset-0 pointer-events-none" />
+
+      <div className="relative z-10 px-4 pt-4">
+        <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full transition-all duration-100" style={{ width: `${progress * 100}%`, background: STAGE_ACCENT }} />
+        </div>
+      </div>
+
+      <div className="relative z-10 px-4 pt-2 flex justify-between items-start gap-2">
+        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/45 leading-snug">
+          <div className="tabular">Preview {formatStageTime(currentTime)} / 0:30</div>
+          {synced && (
+            <div className="tabular mt-0.5" style={{ color: STAGE_ACCENT }}>
+              Song {formatStageTime(songTimeNow)}
+            </div>
+          )}
+        </div>
+        <div className="font-display text-[20px] tabular shrink-0" style={{ color: STAGE_ACCENT }}>{secondsLeft}</div>
+      </div>
+
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-4 min-h-0">
+        {state.lyricsStatus === "plain" && (
+          <div className="max-h-[40vh] overflow-hidden text-center text-sm text-white/65 whitespace-pre-line leading-relaxed px-2">
+            {state.plainLyrics}
+          </div>
+        )}
+        {synced && (
+          <div className="stage-lyrics-block w-full max-w-lg text-center">
+            {prevLine && (
+              <div className="stage-lyric-prev font-display text-[18px] text-white/35 mb-3 transition-all duration-300">
+                {prevLine.text}
+              </div>
+            )}
+            <div
+              className="stage-lyric-current font-display leading-[1.05] transition-all duration-300"
+              style={{ color: "var(--hp-gold)", fontSize: "clamp(1.5rem, 6vw, 2.75rem)" }}
+            >
+              {currLine ? currLine.text : "♪"}
+            </div>
+            {nextLine && (
+              <div className="stage-lyric-next font-display text-[18px] text-white/40 mt-3 transition-all duration-300">
+                {nextLine.text}
+              </div>
+            )}
+          </div>
+        )}
+        {!synced && state.lyricsStatus !== "plain" && (
+          <div className="font-display text-[28px] text-white/50 tracking-[0.08em]">SING IT!</div>
+        )}
+      </div>
+
+      <div className="relative z-10 px-4 pb-4 flex flex-col gap-2">
+        {synced && (
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => adjustOffset(-STAGE_SYNC_STEP_SEC)}
+              className="stage-sync-btn font-mono text-[9px] uppercase px-2.5 py-1.5 rounded-lg border border-white/20"
+            >
+              −0.5s earlier
+            </button>
+            <span className="font-mono text-[9px] tabular text-white/40 min-w-[72px] text-center">
+              {offset >= 0 ? "+" : ""}{offset.toFixed(1)}s
+            </span>
+            <button
+              type="button"
+              onClick={() => adjustOffset(STAGE_SYNC_STEP_SEC)}
+              className="stage-sync-btn font-mono text-[9px] uppercase px-2.5 py-1.5 rounded-lg border border-white/20"
+            >
+              +0.5s later
+            </button>
+          </div>
+        )}
+        <div className="flex items-end justify-between gap-3">
+        <MicLevelBars level={micLevel} />
+        <div
+          className="stage-pitch-dot w-3 rounded-full transition-all duration-75"
+          style={{
+            height: `${24 + pitchNorm * 48}px`,
+            background: STAGE_ACCENT,
+            boxShadow: `0 0 12px ${STAGE_ACCENT}`,
+          }}
+          title="Pitch"
+        />
+        </div>
+      </div>
+
+      <audio ref={audioRef} preload="auto" playsInline />
+    </div>
+  );
+}
+
+function StageResultsScreen({ state, dispatch, onExit }) {
+  const [displayScore, setDisplayScore] = useStateApp(0);
+  const track = state.selectedTrack;
+  const target = state.score ?? 0;
+
+  useEffectApp(() => {
+    let frame;
+    const start = performance.now();
+    const dur = 1200;
+    const step = (now) => {
+      const p = clamp((now - start) / dur, 0, 1);
+      setDisplayScore(Math.round(target * p));
+      if (p < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [target]);
+
+  return (
+    <div className="stage-shell stage-content flex-1 px-6 pb-10 text-center">
+      <div
+        className="font-display leading-none tabular splash-num"
+        style={{ fontSize: "clamp(72px, 20vw, 120px)", color: STAGE_ACCENT }}
+      >
+        {displayScore}
+      </div>
+      <div className="mt-2 inline-block rounded-full px-4 py-2 border font-mono text-[11px] uppercase tracking-[0.14em]" style={{ borderColor: `${STAGE_ACCENT}66`, color: STAGE_ACCENT }}>
+        {state.scoreLabel}
+      </div>
+
+      {track && track.albumArt && (
+        <img src={track.albumArt} alt="" className="mx-auto mt-8 w-28 h-28 rounded-2xl object-cover border border-white/15 shadow-lg" />
+      )}
+      {track && (
+        <div className="mt-4 font-display text-[22px]">{track.title}</div>
+      )}
+
+      <div className="mt-8 space-y-3 max-w-xs mx-auto">
+        <button type="button" onClick={() => dispatch({ type: "singAgain" })} className="stage-primary-btn w-full rounded-xl py-3.5 font-display text-[18px] tracking-[0.1em]">
+          SING AGAIN
+        </button>
+        <button type="button" onClick={() => dispatch({ type: "goSearch" })} className="w-full rounded-xl py-3.5 font-display text-[18px] tracking-[0.1em] border transition btn-gold">
+          <span className="relative z-[1]">NEW SONG</span>
+        </button>
+        <button type="button" onClick={onExit} className="w-full rounded-xl py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-white/45 hover:text-white">
+          BACK TO MENU
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function stageReducer(state, action) {
+  switch (action.type) {
+    case "setSearchLoading":
+      return { ...state, searchLoading: action.loading };
+    case "setSearchError":
+      return { ...state, searchError: action.error };
+    case "setTrackMeta":
+      if (!state.selectedTrack || state.selectedTrack.deezerTrackId !== action.track.deezerTrackId) {
+        return state;
+      }
+      return { ...state, selectedTrack: { ...state.selectedTrack, ...action.track } };
+    case "selectTrack":
+      return {
+        ...initialStageState(),
+        screen: "ready",
+        selectedTrack: action.track,
+        lyricsOffset: loadLyricsOffset(action.track.deezerTrackId),
+        micStatus: "idle",
+      };
+    case "lyricsLoaded":
+      return {
+        ...state,
+        lyrics: action.lyrics,
+        plainLyrics: action.plain,
+        lyricsStatus: action.status,
+      };
+    case "setLyricsOffset":
+      return { ...state, lyricsOffset: action.offset };
+    case "setLyricsStatus":
+      return { ...state, lyricsStatus: action.status };
+    case "setMicStatus":
+      return { ...state, micStatus: action.status };
+    case "setMicStream":
+      return { ...state, micStream: action.stream };
+    case "goPerformance":
+      return {
+        ...state,
+        screen: "performance",
+        performanceStatus: "singing",
+        recordedPitches: [],
+        totalFrames: 0,
+        voicedFrames: 0,
+        score: null,
+        scoreLabel: null,
+        performanceRun: (state.performanceRun || 0) + 1,
+      };
+    case "setPerformanceStatus":
+      return { ...state, performanceStatus: action.status };
+    case "finishPerformance":
+      return {
+        ...state,
+        screen: "results",
+        performanceStatus: "finished",
+        recordedPitches: action.recordedPitches,
+        totalFrames: action.totalFrames,
+        voicedFrames: action.voicedFrames,
+        score: action.score,
+        scoreLabel: action.scoreLabel,
+      };
+    case "singAgain":
+      return {
+        ...state,
+        screen: "performance",
+        performanceStatus: "singing",
+        recordedPitches: [],
+        totalFrames: 0,
+        voicedFrames: 0,
+        score: null,
+        scoreLabel: null,
+        performanceRun: (state.performanceRun || 0) + 1,
+      };
+    case "goSearch":
+      return { ...initialStageState(), screen: "search" };
+    case "goReady":
+      return { ...state, screen: "ready" };
+    default:
+      return state;
+  }
+}
+
+function StageModeView({ onReset }) {
+  const [state, dispatch] = useReducerApp(stageReducer, initialStageState());
+  const micStream = state.micStream || null;
+
+  return (
+    <div className="hp-stage relative min-h-[100dvh] overflow-hidden hp-vignette hp-grain flex flex-col fade-enter">
+      <div className="hp-header-bar pt-6 px-6 md:px-0 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ background: STAGE_ACCENT }} />
+          <span className="font-display landing-nav tracking-[0.28em] text-white/85">STAGE MODE</span>
+        </div>
+        <button type="button" onClick={onReset} className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 hover:text-white">
+          Exit
+        </button>
+      </div>
+
+      {state.screen === "search" && <StageSearchScreen state={state} dispatch={dispatch} />}
+      {state.screen === "ready" && (
+        <StageReadyScreen state={state} dispatch={dispatch} onBack={() => dispatch({ type: "goSearch" })} />
+      )}
+      {state.screen === "performance" && (
+        <StagePerformanceScreen
+          state={state}
+          dispatch={dispatch}
+          micStream={micStream}
+          performanceRun={state.performanceRun}
+        />
+      )}
+      {state.screen === "results" && (
+        <StageResultsScreen state={state} dispatch={dispatch} onExit={onReset} />
+      )}
+    </div>
+  );
+}
+
+
 // ---------- App ----------
 function App() {
   const [choice, setChoice] = useStateApp(null);
@@ -3172,9 +4259,11 @@ function App() {
     <div className="shell">
       {!choice && <StartScreen onChoose={setChoice} />}
       {choice && (
-        choice.game === "solo"
-          ? <SoloShowdownView choice={choice} onReset={() => setChoice(null)} />
-          : <GameView choice={choice} onReset={() => setChoice(null)} />
+        choice.game === "stage"
+          ? <StageModeView onReset={() => setChoice(null)} />
+          : choice.game === "flip"
+            ? <FlipModeView choice={choice} onReset={() => setChoice(null)} />
+            : <GameView choice={choice} onReset={() => setChoice(null)} />
       )}
     </div>
   );

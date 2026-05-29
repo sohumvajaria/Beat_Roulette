@@ -419,9 +419,10 @@ function useSession(mode, displayName) {
   };
 }
 
-// ---------------- Solo Showdown (separate session + reducer) ----------------
+// ---------------- Flip Mode (separate session + reducer) ----------------
 
-const SOLO_PEER_PREFIX = "solo-showdown-v1-";
+const FLIP_PEER_PREFIX = "flip-mode-v1-";
+const SOLO_PEER_PREFIX = FLIP_PEER_PREFIX;
 
 function hashStringToSeed(str) {
   // FNV-1a 32-bit
@@ -492,7 +493,7 @@ async function fetchDeezerChartTracks() {
     .filter(Boolean);
 }
 
-function soloInitialState() {
+function flipInitialState() {
   return {
     phase: "lobby", // lobby | round | results | final
     hostDeviceId: null,
@@ -527,7 +528,7 @@ function buildRoundFromSeed({ seed, roundIdx, tracks }) {
   return { correctId, choiceIds };
 }
 
-function soloReducer(state, action) {
+function flipReducer(state, action) {
   switch (action.type) {
     case "join": {
       if (state.phase !== "lobby") return state;
@@ -623,7 +624,7 @@ function soloReducer(state, action) {
       // Keep lobby + players, reset scores/rounds (host can do this)
       const cleared = Object.fromEntries(state.players.map(p => [p.deviceId, 0]));
       return {
-        ...soloInitialState(),
+        ...flipInitialState(),
         hostDeviceId: state.hostDeviceId,
         players: state.players,
         scores: cleared,
@@ -638,9 +639,9 @@ function soloReducer(state, action) {
 }
 
 // mode: { roomId, roundCount, seed }
-function useSoloSession(mode, displayName) {
+function useFlipSession(mode, displayName) {
   const myDeviceId = useRef(newDeviceId()).current;
-  const [state, setState] = useState(soloInitialState);
+  const [state, setState] = useState(flipInitialState);
   const [status, setStatus] = useState({ kind: "idle", message: "" });
   const peerRef = useRef(null);
   const connsRef = useRef(new Map()); // host: peerId->conn ; client: "host"->conn
@@ -649,7 +650,7 @@ function useSoloSession(mode, displayName) {
 
   const hostApply = useCallback((action) => {
     setState(prev => {
-      const next = soloReducer(prev, action);
+      const next = flipReducer(prev, action);
       connsRef.current.forEach(conn => {
         try { conn.send({ type: "state", state: next }); } catch (e) {}
       });
@@ -663,7 +664,7 @@ function useSoloSession(mode, displayName) {
       return () => {};
     }
 
-    const roomPeerId = SOLO_PEER_PREFIX + mode.roomId;
+    const roomPeerId = FLIP_PEER_PREFIX + mode.roomId;
     setStatus({ kind: "connecting", message: "Finding match…" });
 
     const hostPeer = new Peer(roomPeerId, { debug: 0 });
@@ -765,9 +766,11 @@ function useSoloSession(mode, displayName) {
 
 Object.assign(window, {
   useSession,
-  useSoloSession,
+  useFlipSession,
+  useSoloSession: useFlipSession,
   getDeviceId,
   newDeviceId,
   PEER_PREFIX,
-  SOLO_PEER_PREFIX,
+  FLIP_PEER_PREFIX,
+  SOLO_PEER_PREFIX: FLIP_PEER_PREFIX,
 });
