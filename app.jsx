@@ -215,19 +215,62 @@ const FAMOUS_ARTISTS = [
   "Lana Del Rey","Sabrina Carpenter","Harry Styles","Lil Baby","21 Savage",
 ];
 
-// ---------- Deezer JSONP ----------
-function deezerSearch(query, limit = 25) {
+// ---------- Deezer (JSONP first, then CORS proxies) ----------
+const DEEZER_API = "https://api.deezer.com";
+const DEEZER_SEARCH_RETRY_MSG =
+  "Deezer search unavailable — check your connection and try again.";
+
+async function fetchJsonWithTimeout(url, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`http ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function deezerJsonp(url) {
   return new Promise((resolve, reject) => {
     const cb = "__dz_cb_" + Math.random().toString(36).slice(2);
     const script = document.createElement("script");
     let done = false;
-    const cleanup = () => { done = true; try { delete window[cb]; } catch(e) { window[cb] = undefined; } script.remove(); };
+    const cleanup = () => {
+      done = true;
+      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+      script.remove();
+    };
     window[cb] = (data) => { if (done) return; cleanup(); resolve(data); };
     script.onerror = () => { if (done) return; cleanup(); reject(new Error("network")); };
-    setTimeout(() => { if (done) return; cleanup(); reject(new Error("timeout")); }, 8000);
-    script.src = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=${limit}&output=jsonp&callback=${cb}`;
+    setTimeout(() => { if (done) return; cleanup(); reject(new Error("timeout")); }, 9000);
+    script.src = `${url}${url.includes("?") ? "&" : "?"}output=jsonp&callback=${cb}`;
     document.head.appendChild(script);
   });
+}
+
+async function fetchDeezerApi(apiPath) {
+  const directUrl = apiPath.startsWith("http") ? apiPath : `${DEEZER_API}${apiPath}`;
+  try {
+    return await deezerJsonp(directUrl);
+  } catch (e) {}
+
+  const proxyTimeout = 7000;
+  const proxies = [
+    (target) => `https://corsproxy.io/?${encodeURIComponent(target)}`,
+    (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+  ];
+  for (const toProxy of proxies) {
+    try {
+      return await fetchJsonWithTimeout(toProxy(directUrl), proxyTimeout);
+    } catch (err) {}
+  }
+  throw new Error("deezer_unavailable");
+}
+
+async function deezerSearch(query, limit = 25) {
+  return fetchDeezerApi(`/search?q=${encodeURIComponent(query)}&limit=${limit}`);
 }
 
 function normalizeDeezerTrack(track) {
@@ -259,17 +302,7 @@ async function searchTracks(query) {
   }
 }
 function deezerArtistSearch(name) {
-  return new Promise((resolve, reject) => {
-    const cb = "__dz_art_" + Math.random().toString(36).slice(2);
-    const script = document.createElement("script");
-    let done = false;
-    const cleanup = () => { done = true; try { delete window[cb]; } catch(e){ window[cb] = undefined; } script.remove(); };
-    window[cb] = (data) => { if (done) return; cleanup(); resolve(data); };
-    script.onerror = () => { if (done) return; cleanup(); reject(); };
-    setTimeout(() => { if (done) return; cleanup(); reject(); }, 8000);
-    script.src = `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&output=jsonp&callback=${cb}&limit=1`;
-    document.head.appendChild(script);
-  });
+  return fetchDeezerApi(`/search/artist?q=${encodeURIComponent(name)}&limit=1`);
 }
 async function fetchRandomArtistPhoto() {
   const shuffled = shuffle(FAMOUS_ARTISTS);
@@ -3394,7 +3427,7 @@ async function enrichStageTrack(track) {
   if (track.durationSec > 0 && track.albumName) return track;
   try {
     const url = `https://api.deezer.com/track/${track.deezerTrackId}`;
-    const data = await fetchWithCorsFallback(url);
+    const data = await fetchDeezerApi(url);
     const durationSec = data && data.duration ? Number(data.duration) : track.durationSec || 0;
     const albumName = (data && data.album && data.album.title)
       ? String(data.album.title).trim()
@@ -3760,18 +3793,6 @@ function parseLrc(syncedLyrics) {
   return parsed.sort((a, b) => a.timeSeconds - b.timeSeconds);
 }
 
-async function fetchJsonWithTimeout(url, timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`http ${res.status}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function fetchWithCorsFallback(url, timeoutMs = 6000) {
   try {
     return await fetchJsonWithTimeout(url, timeoutMs);
@@ -3794,8 +3815,7 @@ async function fetchWithCorsFallback(url, timeoutMs = 6000) {
 }
 
 async function stageDeezerSearch(query) {
-  const url = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=8`;
-  const data = await fetchWithCorsFallback(url);
+  const data = await fetchDeezerApi(`/search?q=${encodeURIComponent(query)}&limit=8`);
   const raw = (data && data.data) || [];
   return raw.map(stageTrackFromDeezer).filter((t) => t && t.title);
 }
@@ -3982,7 +4002,7 @@ function StageSearchScreen({ state, dispatch }) {
         dispatch({ type: "setSearchError", error: null });
       } catch (e) {
         setResults([]);
-        dispatch({ type: "setSearchError", error: "Search failed — check your connection" });
+        dispatch({ type: "setSearchError", error: DEEZER_SEARCH_RETRY_MSG });
       } finally {
         dispatch({ type: "setSearchLoading", loading: false });
       }

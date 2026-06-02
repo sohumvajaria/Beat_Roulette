@@ -3,6 +3,10 @@
   "private": true,
   "description": "Beat Roulette — party, blitz, and stage modes",
   "dependencies": {
-    "pitchy": "^4.1.0"
+    "pitchy": "^4.1.0",
+    "partysocket": "^1.1.19"
+  },
+  "devDependencies": {
+    "partykit": "^0.0.115"
   }
 }
