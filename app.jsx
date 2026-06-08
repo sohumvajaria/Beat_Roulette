@@ -4101,36 +4101,72 @@ function StageSearchScreen({ state, dispatch }) {
   );
 }
 
-function MicLevelBars({ level }) {
-  const bars = 5;
-  const v = clamp(level, 0, 1);
-  const heights = [10, 14, 18, 22, 28];
+// Fixed-capacity volume meter: a row of `slots` empty bars (thin gray outline,
+// no fill) so the full range and maximum are always visible. The current input
+// level fills the slots left-to-right with the pink stage accent. The fill has
+// a fast attack and a slow release so it tracks the voice in real time but
+// falls back naturally when the user stops. This is purely visual — the mic
+// detection / level value is taken from `level` unchanged.
+function MicLevelBars({ level, slots = 14, height = 28, className }) {
+  const [display, setDisplay] = useStateApp(0);
+  const displayRef = useRefApp(0);
+  const targetRef = useRefApp(0);
+
+  useEffectApp(() => {
+    targetRef.current = clamp(level, 0, 1);
+  }, [level]);
+
+  useEffectApp(() => {
+    let raf = null;
+    let mounted = true;
+    const tick = () => {
+      const target = targetRef.current;
+      const cur = displayRef.current;
+      // Fast attack when rising, slow release (decay) when falling back.
+      const coeff = target > cur ? 0.5 : 0.12;
+      let next = cur + (target - cur) * coeff;
+      if (Math.abs(next - target) < 0.001) next = target;
+      if (next !== cur) {
+        displayRef.current = next;
+        setDisplay(next);
+      }
+      if (mounted) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      mounted = false;
+      if (raf) cancelAnimationFrame(raf);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const v = clamp(display, 0, 1);
+  const filled = v * slots;
   return (
     <div
-      className="flex items-end gap-1.5"
+      className={cx("flex items-stretch gap-[3px] w-full", className)}
       aria-hidden="true"
       role="meter"
       aria-valuenow={Math.round(v * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
+      style={{ height: `${height}px` }}
     >
-      {heights.map((maxH, i) => {
-        const segStart = i / bars;
-        const segEnd = (i + 1) / bars;
-        const fill = clamp((v - segStart) / (segEnd - segStart), 0, 1);
-        const litH = 3 + fill * (maxH - 3);
+      {Array.from({ length: slots }).map((_, i) => {
+        const slotFill = clamp(filled - i, 0, 1);
         return (
           <div
             key={i}
-            className="relative w-2 rounded-sm bg-white/12"
-            style={{ height: `${maxH}px` }}
+            className="relative flex-1 min-w-0 rounded-[2px] border border-white/15"
           >
             <div
-              className="absolute bottom-0 left-0 right-0 rounded-sm transition-all duration-75"
+              className="absolute inset-y-[1px] left-[1px] rounded-[1px]"
               style={{
-                height: `${litH}px`,
-                background: fill > 0.04 ? STAGE_ACCENT : "transparent",
-                boxShadow: fill > 0.45 ? `0 0 8px ${STAGE_ACCENT}` : undefined,
+                width: `calc(${slotFill * 100}% - 1px)`,
+                background: "var(--stage-accent)",
+                opacity: slotFill > 0.02 ? 1 : 0,
+                boxShadow: slotFill > 0.4 ? "0 0 6px var(--stage-accent)" : undefined,
+                transition: "opacity 60ms linear",
               }}
             />
           </div>
@@ -4672,9 +4708,11 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
 
       <div className="relative z-10 px-4 pb-4 flex flex-col gap-2 shrink-0">
         <div className="flex items-end justify-between gap-3">
-        <MicLevelBars level={micLevel} />
+        <div className="flex-1 min-w-0">
+          <MicLevelBars level={micLevel} height={16} />
+        </div>
         <div
-          className="stage-pitch-dot w-3 rounded-full transition-all duration-75"
+          className="stage-pitch-dot w-3 rounded-full transition-all duration-75 shrink-0"
           style={{
             height: `${24 + pitchNorm * 48}px`,
             background: STAGE_ACCENT,
