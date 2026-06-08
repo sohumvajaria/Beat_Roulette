@@ -46,6 +46,8 @@ function partyInitialState() {
     streaks: {},
     fastestCorrect: null,
     songsPerPlayer: null,
+    reactions: [],
+    reactionSeq: 0,
   };
 }
 

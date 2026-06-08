@@ -1155,7 +1155,7 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <span style={{ color: "var(--hp-gold)" }}>ROULETTE</span>
           </h1>
           <div className="fade-up d1 mt-3 font-mono landing-tagline uppercase tracking-[0.32em] text-white/55">
-            <span style={{ color: "var(--hp-magenta)" }}>★</span> Spin the wheel · Name that tune · Win the night <span style={{ color: "var(--hp-magenta)" }}>★</span>
+            <span style={{ color: "var(--hp-magenta)" }}>★</span> Name that turn · win the night <span style={{ color: "var(--hp-magenta)" }}>★</span>
           </div>
 
           <div className="landing-cta-group mode-cards-grid relative z-10 mt-6">
@@ -2581,16 +2581,15 @@ function useAutoRevealWhenAllVoted(song, voterIds, guesses, dispatch, audioRef, 
   }, [song, voteKey, voterIds.length, dispatch, audioRef, setPlaying]);
 }
 
-function RoundReactionBar({ variant }) {
+function RoundReactionBar({ variant, dispatch, reactions }) {
   const [floats, setFloats] = useStateApp([]);
   const nextIdRef = useRefApp(0);
+  const seenReactionIdsRef = useRefApp(new Set());
 
-  const spawnFloat = (reaction, ev) => {
-    const btn = ev.currentTarget;
-    const rect = btn.getBoundingClientRect();
+  const spawnFloat = (reaction, opts) => {
     const id = ++nextIdRef.current;
-    const x = rect.left + rect.width / 2;
-    const y = rect.top;
+    const x = opts.x;
+    const y = opts.y;
     const topMargin = 28;
     const lift = Math.min(Math.max(y - topMargin, 72), window.innerHeight - topMargin - 48);
     const sway = (Math.random() > 0.5 ? 1 : -1) * (5 + Math.random() * 8);
@@ -2598,6 +2597,7 @@ function RoundReactionBar({ variant }) {
       id,
       code: reaction.code,
       glyph: reaction.glyph,
+      playerName: opts.playerName || null,
       x: Math.round(x),
       y: Math.round(y),
       lift: Math.round(lift),
@@ -2606,6 +2606,44 @@ function RoundReactionBar({ variant }) {
     window.setTimeout(() => {
       setFloats(prev => prev.filter(f => f.id !== id));
     }, 2800);
+  };
+
+  const spawnFromButton = (reaction, ev) => {
+    const btn = ev.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    spawnFloat(reaction, {
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+      playerName: null,
+    });
+  };
+
+  const spawnFromNetwork = (reaction, playerName) => {
+    const x = window.innerWidth * (0.15 + Math.random() * 0.7);
+    const y = window.innerHeight - 88;
+    spawnFloat(reaction, { x, y, playerName });
+  };
+
+  useEffectApp(() => {
+    if (!reactions || reactions.length === 0) {
+      seenReactionIdsRef.current = new Set();
+      return;
+    }
+    for (const ev of reactions) {
+      if (seenReactionIdsRef.current.has(ev.id)) continue;
+      seenReactionIdsRef.current.add(ev.id);
+      const reaction = ROUND_REACTIONS.find(r => r.id === ev.reactionId);
+      if (!reaction) continue;
+      spawnFromNetwork(reaction, ev.name);
+    }
+  }, [reactions]);
+
+  const sendReaction = (reaction, ev) => {
+    if (dispatch) {
+      dispatch({ type: "sendReaction", reactionId: reaction.id, nowMs: Date.now() });
+    } else {
+      spawnFromButton(reaction, ev);
+    }
   };
 
   const positive = ROUND_REACTIONS.filter(r => r.tone === "pos");
@@ -2651,7 +2689,7 @@ function RoundReactionBar({ variant }) {
                 type="button"
                 className="reaction-btn reaction-btn--pos"
                 aria-label={r.label}
-                onClick={(ev) => spawnFloat(r, ev)}
+                onClick={(ev) => sendReaction(r, ev)}
               >
                 <img
                   src={twemojiSrc(r.code)}
@@ -2672,7 +2710,7 @@ function RoundReactionBar({ variant }) {
                 type="button"
                 className="reaction-btn reaction-btn--neg"
                 aria-label={r.label}
-                onClick={(ev) => spawnFloat(r, ev)}
+                onClick={(ev) => sendReaction(r, ev)}
               >
                 <img
                   src={twemojiSrc(r.code)}
@@ -2925,7 +2963,7 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
             : (lockedCount === voters.length ? "All in — host is revealing…" : "Reveal happens when everyone's locked in")}
         </div>
       </div>
-      <RoundReactionBar variant="cinematic" />
+      <RoundReactionBar variant="cinematic" dispatch={dispatch} reactions={state.reactions} />
     </HomeStageShell>
   );
 }
@@ -2937,9 +2975,10 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
 
   const playersById = Object.fromEntries(state.players.map(p => [p.deviceId, p]));
   const guessers = state.players;
-  const guessedIds = guessers.filter(g => state.guesses[g.deviceId]).map(g => g.deviceId);
-  const wrongCount = guessedIds.filter(id => state.guesses[id] !== song.ownerDeviceId).length;
-  const sneaky = guessedIds.length > 0 && wrongCount * 2 > guessedIds.length;
+  const roundTopDelta = Math.max(
+    0,
+    ...guessers.map(g => state.scoreDeltas[g.deviceId] || 0)
+  );
 
   const sorted = state.players
     .map(p => ({ deviceId: p.deviceId, name: p.name, score: state.scores[p.deviceId] || 0, delta: state.scoreDeltas[p.deviceId] || 0 }))
@@ -2963,21 +3002,16 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                 </div>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {sneaky && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-black/40 text-white/60 border border-white/15 font-mono uppercase tracking-[0.12em]">
-                  ✦ Sneaky · {song.ownerName} +1
-                </span>
-              )}
-              {!state.localPassAround && state.fastestCorrect && (
+            {state.fastestCorrect && roundTopDelta > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
                 <span
                   className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-mono uppercase tracking-[0.12em]"
                   style={{ background: "rgba(245,197,24,0.12)", color: "var(--hp-gold)", borderColor: "rgba(245,197,24,0.35)" }}
                 >
-                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +1
+                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +{roundTopDelta}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </HpPanel>
         ) : (
           <div className="rounded-3xl border border-[#282828] bg-[#181818] p-5 grain relative overflow-hidden">
@@ -2991,18 +3025,13 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                 </div>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {sneaky && (
-                <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#282828] text-[#B3B3B3] border border-[#3a3a3a]">
-                  ✦ Sneaky pick · {song.ownerName} +1
-                </span>
-              )}
-              {state.fastestCorrect && (
+            {state.fastestCorrect && roundTopDelta > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30">
-                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +1
+                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +{roundTopDelta}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -3193,7 +3222,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
               {winners.length === 0 ? "NOBODY, SOMEHOW" : winners.map(w => w.name.toUpperCase()).join(" & ")}
             </div>
             <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55 tabular">
-              {winnerScore} point{winnerScore === 1 ? "" : "s"} · taste validated
+              {winnerScore} pt{winnerScore === 1 ? "" : "s"} · playlist legend
             </div>
           </HpPanel>
         ) : (
@@ -3205,7 +3234,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
               {winners.length === 0 ? "Nobody, somehow" : winners.map(w => w.name).join(" & ")}
             </div>
             <div className="mt-2 text-sm text-white/65 tabular">
-              {winnerScore} point{winnerScore === 1 ? "" : "s"} · taste validated.
+              {winnerScore} pt{winnerScore === 1 ? "" : "s"} · playlist legend.
             </div>
           </div>
         )}
@@ -3447,39 +3476,6 @@ async function enrichStageTrack(track) {
   }
 }
 
-/**
- * Where the Deezer 30s MP3 begins in the full song (seconds).
- * Try candidate start times; pick the 30s window with lyrics that begin soon in the clip.
- */
-function pickPreviewStartSec(lyrics, durationSec) {
-  const fallback = computeDeezerPreviewStartSec(durationSec);
-  if (!lyrics || lyrics.length === 0) return fallback;
-  const d = durationSec > 0 ? durationSec : 240;
-  const window = STAGE_PREVIEW_MAX_SEC;
-  const maxStart = Math.max(0, Math.floor(d) - window);
-  const candidates = new Set([fallback, 0]);
-  for (let s = 0; s <= maxStart; s += 5) candidates.add(s);
-
-  let bestStart = fallback;
-  let bestScore = -Infinity;
-  candidates.forEach((start) => {
-    const inWindow = lyrics.filter(
-      (l) => l.timeSeconds >= start && l.timeSeconds < start + window
-    );
-    if (inWindow.length === 0) return;
-    const firstInClip = inWindow[0].timeSeconds - start;
-    const score = inWindow.length * 8
-      + (start === fallback ? 6 : 0)
-      + (firstInClip <= 6 ? 10 : 0)
-      - firstInClip * 0.5;
-    if (score > bestScore) {
-      bestScore = score;
-      bestStart = start;
-    }
-  });
-  return bestStart;
-}
-
 /** Lines whose timestamps fall inside [previewStart, previewStart + 30s) of the full song. */
 function clipLyricsForPreview(lyrics, previewStartSec) {
   if (!lyrics || lyrics.length === 0) return [];
@@ -3518,7 +3514,7 @@ function findActiveLyricIndex(lines, audioTimeSec, previewStartSec) {
   if (!lines || lines.length === 0) return -1;
   const start = previewStartSec != null ? previewStartSec : 0;
   const gap = medianLyricLineGapSec(lines);
-  const lineLead = clamp(gap * 0.65, 0.75, 3.5);
+  const lineLead = clamp(gap * 0.35, 0.4, 2);
   const t = audioTimeSec + lineLead;
   let idx = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -3871,6 +3867,10 @@ function pickBestLrcHit(exactHit, searchList, qList, durationSec) {
 async function fetchStageLyricsUncached(title, artist, durationSec, albumName) {
   const searchUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
   const qUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${title} ${artist}`)}`;
+  const titleOnlyUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}`;
+  const albumUrl = albumName
+    ? `https://lrclib.net/api/search?q=${encodeURIComponent(`${title} ${artist} ${albumName}`)}`
+    : null;
   const getUrl = durationSec > 0
     ? `https://lrclib.net/api/get?${new URLSearchParams({
       track_name: title,
@@ -3881,13 +3881,20 @@ async function fetchStageLyricsUncached(title, artist, durationSec, albumName) {
     : null;
 
   const timeoutMs = 5500;
-  const [exactHit, searchList, qList] = await Promise.all([
+  const [exactHit, searchList, qList, titleOnlyList, albumList] = await Promise.all([
     getUrl ? fetchWithCorsFallback(getUrl, timeoutMs).catch(() => null) : Promise.resolve(null),
     fetchWithCorsFallback(searchUrl, timeoutMs).catch(() => []),
     fetchWithCorsFallback(qUrl, timeoutMs).catch(() => []),
+    fetchWithCorsFallback(titleOnlyUrl, timeoutMs).catch(() => []),
+    albumUrl ? fetchWithCorsFallback(albumUrl, timeoutMs).catch(() => []) : Promise.resolve([]),
   ]);
 
-  const hit = pickBestLrcHit(exactHit, searchList, qList, durationSec);
+  const mergedSearch = [
+    ...(Array.isArray(searchList) ? searchList : []),
+    ...(Array.isArray(titleOnlyList) ? titleOnlyList : []),
+    ...(Array.isArray(albumList) ? albumList : []),
+  ];
+  const hit = pickBestLrcHit(exactHit, mergedSearch, qList, durationSec);
   return lrclibHitToResult(hit);
 }
 
@@ -3922,9 +3929,7 @@ function prefetchStageLyrics(track) {
 }
 
 function buildStageLyricsPayload(track, lyricsRes) {
-  const previewStartSec = lyricsRes.status === "synced" && lyricsRes.lyrics.length > 0
-    ? pickPreviewStartSec(lyricsRes.lyrics, track.durationSec || 0)
-    : computeDeezerPreviewStartSec(track.durationSec || 0);
+  const previewStartSec = computeDeezerPreviewStartSec(track.durationSec || 0);
   const previewClipLyrics = lyricsRes.status === "synced" && lyricsRes.lyrics.length > 0
     ? clipLyricsForPreview(lyricsRes.lyrics, previewStartSec)
     : [];
@@ -4097,6 +4102,39 @@ function StageSearchScreen({ state, dispatch }) {
             </button>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function singMeterLabel(level) {
+  if (level < 0.08) return "SING!";
+  if (level < 0.28) return "WARMING UP";
+  if (level < 0.48) return "KEEP GOING";
+  if (level < 0.68) return "CLOSE";
+  if (level < 0.85) return "ON PITCH";
+  return "NAILING IT";
+}
+
+function StageSingMeter({ level, label }) {
+  const v = clamp(level, 0, 1);
+  const pct = v * 100;
+  const color = v > 0.75 ? "var(--hp-neon)" : v > 0.45 ? "var(--hp-gold)" : STAGE_ACCENT;
+  return (
+    <div className="w-full">
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/45">Sing meter</span>
+        <span className="font-mono text-[9px] uppercase tracking-[0.16em] tabular" style={{ color }}>{label}</span>
+      </div>
+      <div className="h-2.5 rounded-full bg-white/10 overflow-hidden border border-white/8">
+        <div
+          className="h-full rounded-full transition-all duration-150"
+          style={{
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, ${STAGE_ACCENT}, ${color})`,
+            boxShadow: v > 0.35 ? `0 0 14px ${color}88` : undefined,
+          }}
+        />
       </div>
     </div>
   );
@@ -4319,9 +4357,12 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
   const voicedFramesRef = useRefApp(0);
   const micVoiceTrackerRef = useRefApp(createMicVoiceTracker());
   const micSmoothRef = useRefApp(0);
+  const singMeterSmoothRef = useRefApp(0);
   const [currentTime, setCurrentTime] = useStateApp(0);
   const [pitchHz, setPitchHz] = useStateApp(0);
   const [micLevel, setMicLevel] = useStateApp(0);
+  const [singMeter, setSingMeter] = useStateApp(0);
+  const [singLabel, setSingLabel] = useStateApp("SING!");
   const [previewFailed, setPreviewFailed] = useStateApp(false);
   const [analysisFailed, setAnalysisFailed] = useStateApp(false);
 
@@ -4367,10 +4408,13 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
     totalFramesRef.current = 0;
     voicedFramesRef.current = 0;
     micVoiceTrackerRef.current = createMicVoiceTracker();
+    singMeterSmoothRef.current = 0;
     setPreviewFailed(false);
     setAnalysisFailed(false);
     setCurrentTime(0);
     setPitchHz(0);
+    setSingMeter(0);
+    setSingLabel("SING!");
   }, [performanceRun]);
 
   const finishPerformance = useCallbackApp(() => {
@@ -4477,6 +4521,16 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
             } else {
               setPitchHz(0);
             }
+
+            let singInstant = 0;
+            if (scorePitch && refHz > 0) {
+              singInstant = pitchMatchesReference(scorePitch, refHz, PITCH_MATCH_CENTS) ? 1 : 0.22;
+            } else if (scorePitch) {
+              singInstant = 0.12;
+            }
+            singMeterSmoothRef.current = singMeterSmoothRef.current * 0.82 + singInstant * 0.18;
+            setSingMeter(singMeterSmoothRef.current);
+            setSingLabel(singMeterLabel(singMeterSmoothRef.current));
 
             const duration = Math.min(STAGE_PREVIEW_MAX_SEC, audio.duration || STAGE_PREVIEW_MAX_SEC);
             const endAt = Math.min(duration, STAGE_PREVIEW_MAX_SEC);
@@ -4671,18 +4725,25 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
         )}
       </div>
 
-      <div className="relative z-10 px-4 pb-4 flex flex-col gap-2 shrink-0">
+      <div className="relative z-10 px-4 pb-4 flex flex-col gap-3 shrink-0">
+        <StageSingMeter level={singMeter} label={singLabel} />
         <div className="flex items-end justify-between gap-3">
-        <MicLevelBars level={micLevel} />
-        <div
-          className="stage-pitch-dot w-3 rounded-full transition-all duration-75"
-          style={{
-            height: `${24 + pitchNorm * 48}px`,
-            background: STAGE_ACCENT,
-            boxShadow: `0 0 12px ${STAGE_ACCENT}`,
-          }}
-          title="Pitch"
-        />
+          <div className="flex flex-col gap-1">
+            <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-white/35">Mic</span>
+            <MicLevelBars level={micLevel} />
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-white/35">Pitch</span>
+            <div
+              className="stage-pitch-dot w-3 rounded-full transition-all duration-75"
+              style={{
+                height: `${24 + pitchNorm * 48}px`,
+                background: STAGE_ACCENT,
+                boxShadow: `0 0 12px ${STAGE_ACCENT}`,
+              }}
+              title="Pitch"
+            />
+          </div>
         </div>
       </div>
 

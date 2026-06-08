@@ -26,6 +26,8 @@ function initialState() {
     streaks: {} as Record<string, number>,
     fastestCorrect: null as string | null,
     songsPerPlayer: null as number | null,
+    reactions: [] as { id: number; reactionId: string; deviceId: string; name: string; atMs: number }[],
+    reactionSeq: 0,
   };
 }
 
@@ -143,6 +145,8 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
         guessTimes: {},
         roundStartedAt: 0,
         fastestCorrect: null,
+        reactions: [],
+        reactionSeq: 0,
       };
     }
     case "enterRound": {
@@ -153,6 +157,27 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
         roundStartedAt: action.now as number,
         guesses: {},
         guessTimes: {},
+        reactions: [],
+      };
+    }
+    case "sendReaction": {
+      if (state.phase !== "round") return state;
+      const deviceId = action.deviceId as string;
+      const reactionId = action.reactionId as string;
+      if (!deviceId || !reactionId) return state;
+      const player = state.players.find((p) => p.deviceId === deviceId);
+      const nextSeq = (state.reactionSeq || 0) + 1;
+      const event = {
+        id: nextSeq,
+        reactionId,
+        deviceId,
+        name: player ? player.name : "Player",
+        atMs: (action.nowMs as number) || Date.now(),
+      };
+      return {
+        ...state,
+        reactionSeq: nextSeq,
+        reactions: [...(state.reactions || []), event].slice(-32),
       };
     }
     case "submitGuess": {
@@ -177,23 +202,11 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
       const guessers = state.players.filter((p) => p.online !== false).map((p) => p.deviceId);
       if (guessers.length > 0 && !guessers.every((g) => state.guesses[g] != null)) return state;
 
-      let fastest: string | null = null;
-      let fastestT = Infinity;
-      for (const g of guessers) {
-        if (state.guesses[g] === song.ownerDeviceId) {
-          const t = state.guessTimes[g];
-          if (t != null && t < fastestT) {
-            fastestT = t;
-            fastest = g;
-          }
-        }
-      }
-
       const scores = { ...state.scores };
       const streaks = { ...state.streaks };
       const deltas: Record<string, number> = {};
-      let wrongCount = 0;
-      let totalLocked = 0;
+      let fastest: string | null = null;
+      let fastestPoints = 0;
 
       for (const g of guessers) {
         const guess = state.guesses[g];
@@ -203,28 +216,21 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
           deltas[g] = 0;
           continue;
         }
-        totalLocked += 1;
         const correct = guess === song.ownerDeviceId;
         if (correct) {
-          delta = 1;
-          if (g === fastest) delta += 1;
-          const newStreak = (streaks[g] || 0) + 1;
-          streaks[g] = newStreak;
-          if (newStreak >= 3) delta += 1;
+          const elapsed = state.guessTimes[g] != null ? state.guessTimes[g] : 30000;
+          delta = pointsForMs(elapsed);
+          streaks[g] = (streaks[g] || 0) + 1;
+          if (delta > fastestPoints) {
+            fastestPoints = delta;
+            fastest = g;
+          }
         } else {
           streaks[g] = 0;
-          wrongCount += 1;
         }
         scores[g] = (scores[g] || 0) + delta;
         deltas[g] = delta;
       }
-
-      let ownerDelta = 0;
-      if (totalLocked > 0 && wrongCount * 2 > totalLocked) {
-        ownerDelta = 1;
-        scores[song.ownerDeviceId] = (scores[song.ownerDeviceId] || 0) + 1;
-      }
-      deltas[song.ownerDeviceId] = ownerDelta;
 
       return {
         ...state,
@@ -233,6 +239,7 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
         streaks,
         scoreDeltas: deltas,
         fastestCorrect: fastest,
+        reactions: [],
       };
     }
     case "nextRound": {
@@ -248,6 +255,7 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
         guessTimes: {},
         scoreDeltas: {},
         fastestCorrect: null,
+        reactions: [],
       };
     }
     case "reset": {
