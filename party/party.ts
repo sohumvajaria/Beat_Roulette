@@ -40,6 +40,42 @@ function shuffleArr(arr: string[]) {
   return a;
 }
 
+// Maximum plausible time (ms) for a guesser to lock in a guess. Recorded guess
+// times outside the open interval (0, PARTY_ROUND_MS) are treated as garbage
+// and ignored ONLY when picking the single fastest-correct guesser — a sane-or-
+// not time never changes whether a guess counts as correct, just the speed
+// bonus eligibility. This guards against clock-skew / NaN / negative values.
+const PARTY_ROUND_MS = 5 * 60 * 1000;
+
+function isSaneGuessTime(t: unknown): t is number {
+  return typeof t === "number" && Number.isFinite(t) && t > 0 && t < PARTY_ROUND_MS;
+}
+
+// The ONLY players who may guess in the current round: online players who are
+// not the song's owner. The owner and offline players are excluded everywhere
+// scoring or reveal-gating is computed. Centralized so submitGuess and
+// revealRound can never disagree about who counts as a guesser.
+function partyGuesserIds(state: PartyState, ownerDeviceId: string): string[] {
+  return state.players
+    .filter((p) => p.online !== false && p.deviceId !== ownerDeviceId)
+    .map((p) => p.deviceId);
+}
+
+// ---------- Scoring walkthrough (3 players) ----------
+// Round owned by O. Online guessers: A and B (O is NEVER a guesser).
+//   - A locks in a guess of O (correct) at a sane time.
+//   - B locks in a guess of someone-not-O (wrong).
+// Reveal can only run once both A and B have locked in (O is not expected to).
+//   fastest correct = A (only correct guesser with a sane time).
+//   A: +1 correct, +1 fastest, streak -> 1 (no +1 streak bonus yet) => +2.
+//   B: wrong => +0, streak reset to 0.
+//   locked-in guessers = 2, wrong = 1. Sneaky needs wrong*2 > locked
+//   (2 > 2 is false) => owner O gets +0; O's streak is untouched.
+// Totals this round: O 0, A +2, B 0. (If BOTH A and B were wrong: locked=2,
+// wrong=2, 4 > 2 true => O +1 sneaky; A and B +0.)
+// revealRound is idempotent: it only runs while phase === "round" and moves
+// phase to "results", so a second call is a no-op and never double-counts.
+
 function reducer(state: PartyState, action: Record<string, unknown>): PartyState {
   switch (action.type) {
     case "join": {
@@ -162,7 +198,14 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
       const now = action.now as number;
       const song = state.songs.find((s) => s.id === state.order[state.roundIdx]);
       if (!song) return state;
-      if (state.guesses[deviceId]) return state;
+      // The song owner can never guess in their own round.
+      if (deviceId === song.ownerDeviceId) return state;
+      // You cannot guess yourself.
+      if (deviceId === targetDeviceId) return state;
+      // The target must be a real player in the game.
+      if (!state.players.some((p) => p.deviceId === targetDeviceId)) return state;
+      // One locked-in guess per player — never overwrite an existing guess.
+      if (state.guesses[deviceId] != null) return state;
       return {
         ...state,
         guesses: { ...state.guesses, [deviceId]: targetDeviceId },
@@ -170,57 +213,72 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
       };
     }
     case "revealRound": {
+      // Idempotent: a round can only be revealed once. After the first reveal
+      // phase is "results", so any repeat call falls through here and returns
+      // the state untouched — points are never added a second time.
       if (state.phase !== "round") return state;
       const song = state.songs.find((s) => s.id === state.order[state.roundIdx]);
       if (!song) return state;
 
-      const guessers = state.players.filter((p) => p.online !== false).map((p) => p.deviceId);
-      if (guessers.length > 0 && !guessers.every((g) => state.guesses[g] != null)) return state;
+      // Guessers = online players minus the owner. Offline players and the
+      // owner are never expected to lock in.
+      const guessers = partyGuesserIds(state, song.ownerDeviceId);
 
+      // Cannot reveal until every expected guesser has locked in a guess.
+      if (guessers.length > 0 && !guessers.every((g) => state.guesses[g] != null)) {
+        return state;
+      }
+
+      // Single fastest correct: only among guessers who locked in the owner as
+      // their guess AND have a sane recorded time. Garbage times are ignored
+      // here only (the guess still counts as correct below).
       let fastest: string | null = null;
       let fastestT = Infinity;
       for (const g of guessers) {
-        if (state.guesses[g] === song.ownerDeviceId) {
-          const t = state.guessTimes[g];
-          if (t != null && t < fastestT) {
-            fastestT = t;
-            fastest = g;
-          }
+        if (state.guesses[g] !== song.ownerDeviceId) continue;
+        const t = state.guessTimes[g];
+        if (isSaneGuessTime(t) && t < fastestT) {
+          fastestT = t;
+          fastest = g;
         }
       }
 
       const scores = { ...state.scores };
       const streaks = { ...state.streaks };
       const deltas: Record<string, number> = {};
-      let wrongCount = 0;
-      let totalLocked = 0;
+      let lockedIn = 0;
+      let wrong = 0;
 
       for (const g of guessers) {
         const guess = state.guesses[g];
-        let delta = 0;
         if (guess == null) {
+          // Never locked in: 0 points and streak resets.
           streaks[g] = 0;
           deltas[g] = 0;
           continue;
         }
-        totalLocked += 1;
-        const correct = guess === song.ownerDeviceId;
-        if (correct) {
-          delta = 1;
-          if (g === fastest) delta += 1;
+        lockedIn += 1;
+        let delta = 0;
+        if (guess === song.ownerDeviceId) {
+          delta = 1; // correct guess
+          if (g === fastest) delta += 1; // single fastest correct
           const newStreak = (streaks[g] || 0) + 1;
           streaks[g] = newStreak;
-          if (newStreak >= 3) delta += 1;
+          if (newStreak >= 3) delta += 1; // streak of 3 or more
         } else {
+          // Wrong guess: 0 points and streak resets.
+          wrong += 1;
           streaks[g] = 0;
-          wrongCount += 1;
         }
         scores[g] = (scores[g] || 0) + delta;
         deltas[g] = delta;
       }
 
+      // Owner sneaky bonus: +1 only when MORE THAN HALF of the locked-in
+      // guessers were wrong. Guessers who never locked in are excluded from the
+      // ratio. The owner's streak is never modified in their own round.
       let ownerDelta = 0;
-      if (totalLocked > 0 && wrongCount * 2 > totalLocked) {
+      if (lockedIn > 0 && wrong * 2 > lockedIn) {
         ownerDelta = 1;
         scores[song.ownerDeviceId] = (scores[song.ownerDeviceId] || 0) + 1;
       }

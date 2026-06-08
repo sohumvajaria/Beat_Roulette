@@ -2700,7 +2700,9 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   const [playing, setPlaying] = useStateApp(false);
   const [audioError, setAudioError] = useStateApp(false);
 
-  const voters = state.players.filter(p => p.online !== false);
+  // The song owner is never a guesser — exclude them from the people we wait on.
+  const isOwner = !!song && song.ownerDeviceId === deviceId;
+  const voters = state.players.filter(p => p.online !== false && (!song || p.deviceId !== song.ownerDeviceId));
   const lockedCount = voters.filter(p => state.guesses[p.deviceId] != null).length;
   const myGuess = state.guesses[deviceId];
 
@@ -2760,7 +2762,8 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   if (!song) return null;
 
   const setGuess = (targetDeviceId) => {
-    if (myGuess) return;
+    if (myGuess || isOwner) return;
+    if (targetDeviceId === deviceId) return; // can't guess yourself
     dispatch({
       type: "submitGuess",
       targetDeviceId,
@@ -2842,7 +2845,7 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {state.players.map(p => {
+            {voters.map(p => {
               const locked = state.guesses[p.deviceId] != null;
               const isMe = p.deviceId === deviceId;
               return (
@@ -2867,7 +2870,15 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
           </div>
 
           <HpPanel className="mt-4 p-3 min-h-[180px]">
-            {myGuess ? (
+            {isOwner ? (
+              <div className="text-center py-6">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-magenta)" }}>
+                  This is your track
+                </div>
+                <HpSectionDesc>Sit tight — everyone else is guessing who picked it.</HpSectionDesc>
+                <HpSectionDesc>Waiting for {voters.length - lockedCount} more…</HpSectionDesc>
+              </div>
+            ) : myGuess ? (
               <div className="text-center py-6">
                 <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
                   You locked in
@@ -2876,43 +2887,29 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
                   <Avatar name={guessTarget?.name} size={32} />
                   <div className="font-display text-[22px] tracking-[0.04em]">{guessTarget?.name}</div>
                 </div>
-                {myGuess === deviceId && (
-                  <HpSectionDesc>You voted for yourself.</HpSectionDesc>
-                )}
                 <HpSectionDesc>Waiting for {voters.length - lockedCount} more…</HpSectionDesc>
               </div>
             ) : (
               <>
                 <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Who submitted this track? · you can vote for yourself
+                  Who submitted this track?
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  {state.players.map(p => {
-                    const isSelf = p.deviceId === deviceId;
-                    return (
-                      <button
-                        key={p.deviceId}
-                        onClick={() => setGuess(p.deviceId)}
-                        className={cx(
-                          "rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2",
-                          isSelf
-                            ? "bg-[var(--hp-magenta)]/15 border-[var(--hp-magenta)]/40 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
-                            : "bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
+                  {state.players.filter(p => p.deviceId !== deviceId).map(p => (
+                    <button
+                      key={p.deviceId}
+                      onClick={() => setGuess(p.deviceId)}
+                      className="rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2 bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
+                    >
+                      <Avatar name={p.name} size={26} />
+                      <div className="min-w-0">
+                        <div className="truncate">{p.name}</div>
+                        {p.online === false && (
+                          <div className="font-mono text-[9px] uppercase text-white/30">offline</div>
                         )}
-                      >
-                        <Avatar name={p.name} size={26} />
-                        <div className="min-w-0">
-                          <div className="truncate">{p.name}</div>
-                          {isSelf && (
-                            <div className="font-mono text-[9px] uppercase text-[var(--hp-gold)]">that's you</div>
-                          )}
-                          {p.online === false && !isSelf && (
-                            <div className="font-mono text-[9px] uppercase text-white/30">offline</div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </>
             )}
@@ -2936,7 +2933,9 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
   if (!song) return null;
 
   const playersById = Object.fromEntries(state.players.map(p => [p.deviceId, p]));
-  const guessers = state.players;
+  // The owner is never a guesser — keep them out of the guess list and the
+  // sneaky ratio so this view matches the reducer's scoring exactly.
+  const guessers = state.players.filter(p => p.deviceId !== song.ownerDeviceId);
   const guessedIds = guessers.filter(g => state.guesses[g.deviceId]).map(g => g.deviceId);
   const wrongCount = guessedIds.filter(id => state.guesses[id] !== song.ownerDeviceId).length;
   const sneaky = guessedIds.length > 0 && wrongCount * 2 > guessedIds.length;
