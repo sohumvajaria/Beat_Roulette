@@ -2764,11 +2764,9 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   const setGuess = (targetDeviceId) => {
     if (myGuess || isOwner) return;
     if (targetDeviceId === deviceId) return; // can't guess yourself
-    dispatch({
-      type: "submitGuess",
-      targetDeviceId,
-      now: performance.now(),
-    });
+    // Elapsed guess time is computed server-side (server receive time minus
+    // the server-recorded round start) — no client timestamp is sent.
+    dispatch({ type: "submitGuess", targetDeviceId });
   };
 
   const secondsLeft = Math.max(0, Math.ceil((1 - progress) * (duration || 30)));
@@ -2871,13 +2869,28 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
 
           <HpPanel className="mt-4 p-3 min-h-[180px]">
             {isOwner ? (
-              <div className="text-center py-6">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-magenta)" }}>
-                  This is your track
+              <>
+                <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]" style={{ color: "var(--hp-magenta)" }}>
+                  This is your track — tap any to ride it out
                 </div>
-                <HpSectionDesc>Sit tight — everyone else is guessing who picked it.</HpSectionDesc>
-                <HpSectionDesc>Waiting for {voters.length - lockedCount} more…</HpSectionDesc>
-              </div>
+                {/* Decoy buttons: same motion as everyone else's guess grid, but
+                    blank and scoring-inert — the owner can never guess. */}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {state.players.filter(p => p.deviceId !== deviceId).map(p => (
+                    <button
+                      key={p.deviceId}
+                      type="button"
+                      className="rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2 bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50 active:scale-[0.97]"
+                    >
+                      <div className="w-[26px] h-[26px] rounded-full bg-white/10 border border-white/15 shrink-0"></div>
+                      <div className="h-2.5 w-16 rounded-full bg-white/10"></div>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 text-center">
+                  <HpSectionDesc>Waiting for {voters.length - lockedCount} more…</HpSectionDesc>
+                </div>
+              </>
             ) : myGuess ? (
               <div className="text-center py-6">
                 <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
@@ -3028,10 +3041,11 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
               )}>
                 <Avatar name={guesser.name} size={28} />
                 <div className="min-w-0 flex-1">
+                  {/* Deliberately never show WHO they guessed: revealing wrong
+                      targets would let players deduce later answers by
+                      elimination. Only right/wrong, points, and time. */}
                   <div className="text-sm truncate">
                     <span className="font-medium">{guesser.name}</span>
-                    <span className="text-white/40"> → </span>
-                    <span className="font-medium">{noGuess ? "—" : playersById[target]?.name}</span>
                   </div>
                   <div className="text-[11px] text-white/40 font-mono tabular">
                     {noGuess ? "didn't lock in" : right ? "correct" : "wrong"}{!state.localPassAround && seconds ? ` · ${seconds}s` : ""}
@@ -3325,7 +3339,8 @@ function GameView({ choice, onReset }) {
   // Splash auto-advances; only host triggers it
   const enterRound = useRefApp(() => {});
   useEffectApp(() => {
-    enterRound.current = () => dispatch({ type: "enterRound", now: performance.now() });
+    // roundStartedAt is recorded server-side when this action arrives.
+    enterRound.current = () => dispatch({ type: "enterRound" });
   }, [dispatch]);
 
   if (status.kind !== "ready") {
@@ -3982,8 +3997,48 @@ function waitForPitchy() {
 function StageSearchScreen({ state, dispatch }) {
   const [query, setQuery] = useStateApp("");
   const [results, setResults] = useStateApp([]);
+  // deezerTrackId -> "checking" | "synced" | "freestyle". Filled in the
+  // background after results render so the list never waits on LRCLIB.
+  const [lyricsBadges, setLyricsBadges] = useStateApp({});
   const debRef = useRefApp(null);
   const snippetRef = useRefApp(null);
+
+  // Probe LRCLIB for each result to learn whether it has synced lyrics. Runs
+  // off the render path with limited concurrency; reuses the shared lyrics
+  // cache so a later SELECT is already warm. Slow/failed checks fall back to
+  // the freestyle indicator rather than leaving a row blank.
+  useEffectApp(() => {
+    if (!results.length) {
+      setLyricsBadges({});
+      return;
+    }
+    let cancelled = false;
+    setLyricsBadges(() => {
+      const init = {};
+      for (const t of results) init[t.deezerTrackId] = "checking";
+      return init;
+    });
+
+    const queue = results.slice();
+    const CONCURRENCY = 4;
+    const worker = async () => {
+      while (!cancelled && queue.length) {
+        const t = queue.shift();
+        let status = "freestyle";
+        try {
+          const res = await fetchStageLyrics(t.title, t.artist, t.durationSec || 0, t.albumName || "");
+          status = res && res.status === "synced" ? "synced" : "freestyle";
+        } catch {
+          status = "freestyle";
+        }
+        if (cancelled) return;
+        setLyricsBadges((prev) => ({ ...prev, [t.deezerTrackId]: status }));
+      }
+    };
+    for (let i = 0; i < Math.min(CONCURRENCY, results.length); i++) worker();
+
+    return () => { cancelled = true; };
+  }, [results]);
 
   useEffectApp(() => {
     if (debRef.current) clearTimeout(debRef.current);
@@ -4073,15 +4128,18 @@ function StageSearchScreen({ state, dispatch }) {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold truncate">{track.title}</div>
               <div className="text-[11px] text-white/50 truncate">{track.artist}</div>
-              <button
-                type="button"
-                disabled={!track.previewUrl}
-                onClick={() => playSnippet(track.previewUrl)}
-                className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] hover:opacity-80 disabled:opacity-30"
-                style={{ color: STAGE_ACCENT }}
-              >
-                ▶ Preview
-              </button>
+              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  disabled={!track.previewUrl}
+                  onClick={() => playSnippet(track.previewUrl)}
+                  className="font-mono text-[10px] uppercase tracking-[0.14em] hover:opacity-80 disabled:opacity-30"
+                  style={{ color: STAGE_ACCENT }}
+                >
+                  ▶ Preview
+                </button>
+                <StageLyricsBadge status={lyricsBadges[track.deezerTrackId] || "checking"} />
+              </div>
             </div>
             <button
               type="button"
@@ -4173,6 +4231,90 @@ function MicLevelBars({ level, slots = 14, height = 28, className }) {
         );
       })}
     </div>
+  );
+}
+
+// Intentional "Freestyle" state for tracks with no synced lyrics from LRCLIB.
+// LRCLIB's synced coverage is thin, so a missing lyric track is a designed mode
+// (sing freely, pitch + timing still scored) rather than an error/fallback.
+// `compact` renders a small card for the Ready screen; the full version is the
+// hero state shown in place of lyrics during the performance.
+function StageFreestyleState({ compact }) {
+  if (compact) {
+    return (
+      <div
+        className="rounded-xl border p-3.5 flex items-center gap-3"
+        style={{ borderColor: `${STAGE_ACCENT}55`, background: `${STAGE_ACCENT}14` }}
+      >
+        <span
+          className="font-display text-[18px] tracking-[0.12em] shrink-0"
+          style={{ color: STAGE_ACCENT, textShadow: `0 0 18px ${STAGE_ACCENT}66` }}
+        >
+          FREESTYLE
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/55 leading-relaxed">
+          No synced lyrics for this track — sing freely, your pitch &amp; timing are still scored.
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="text-center px-6 select-none">
+      <div className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.28em] text-white/45 mb-4">
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ background: STAGE_ACCENT, boxShadow: `0 0 10px ${STAGE_ACCENT}` }}
+        />
+        No synced lyrics for this one
+      </div>
+      <div
+        className="font-display leading-none tracking-[0.1em]"
+        style={{
+          fontSize: "clamp(2.5rem, 11vw, 4rem)",
+          color: STAGE_ACCENT,
+          textShadow: `0 0 44px ${STAGE_ACCENT}66`,
+        }}
+      >
+        FREESTYLE
+      </div>
+      <div
+        className="mt-1 font-display tracking-[0.42em] text-white/70"
+        style={{ fontSize: "clamp(1rem, 4vw, 1.4rem)" }}
+      >
+        MODE
+      </div>
+      <p className="mt-5 max-w-xs mx-auto text-white/60 text-sm leading-relaxed">
+        Sing freely — we&apos;re scoring your pitch and timing, no lyrics needed.
+      </p>
+    </div>
+  );
+}
+
+// Lyrics-availability indicator for a search result row. Binary by design:
+// synced lyrics available, or freestyle (no synced lyrics). `checking` is a
+// brief, unobtrusive placeholder while the LRCLIB probe is still in flight.
+function StageLyricsBadge({ status }) {
+  if (status === "synced") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]"
+        style={{ color: STAGE_ACCENT, background: `${STAGE_ACCENT}1f`, border: `1px solid ${STAGE_ACCENT}55` }}
+      >
+        ♪ Synced lyrics
+      </span>
+    );
+  }
+  if (status === "checking") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/30 border border-white/10 animate-pulse">
+        Checking…
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/45 border border-white/15">
+      ✦ Freestyle
+    </span>
   );
 }
 
@@ -4273,14 +4415,9 @@ function StageReadyScreen({ state, dispatch, onBack }) {
       {state.lyricsStatus === "loading" && (
         <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Loading lyrics…</div>
       )}
-      {state.lyricsStatus === "none" && (
-        <div className="mt-4 rounded-xl border border-white/12 bg-black/40 p-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">
-          No lyrics found for this track — you&apos;re freestyling!
-        </div>
-      )}
-      {state.lyricsStatus === "plain" && state.plainLyrics && (
-        <div className="mt-4 rounded-xl border border-white/12 bg-black/40 p-3 max-h-32 overflow-y-auto text-sm text-white/70 whitespace-pre-wrap">
-          {state.plainLyrics.slice(0, 400)}{state.plainLyrics.length > 400 ? "…" : ""}
+      {(state.lyricsStatus === "none" || state.lyricsStatus === "plain") && (
+        <div className="mt-4">
+          <StageFreestyleState compact />
         </div>
       )}
       {state.lyricsStatus === "synced" && (state.previewClipLyrics.length > 0 || state.lyrics.length > 0) && (
@@ -4370,26 +4507,14 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
     }
     return clipLyricsForPreview(allLyrics, start);
   }, [state.previewClipLyrics, allLyrics, previewStart]);
+  // Synced lyrics = the full karaoke experience. Anything else (plain or no
+  // lyrics from LRCLIB) is treated as an intentional Freestyle performance.
   const hasLyrics = state.lyricsStatus === "synced" && clipLyrics.length > 0;
-  const hasPlainLyrics = state.lyricsStatus === "plain" && Boolean(state.plainLyrics);
-  const plainLines = useMemoApp(() => {
-    if (!hasPlainLyrics) return [];
-    return String(state.plainLyrics)
-      .split(/\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-  }, [hasPlainLyrics, state.plainLyrics]);
 
   const activeIndex = useMemoApp(() => {
     if (!hasLyrics || !track) return -1;
     return findActiveLyricIndex(clipLyrics, currentTime, previewStart);
   }, [currentTime, clipLyrics, hasLyrics, track, previewStart]);
-
-  const plainActiveIndex = useMemoApp(() => {
-    if (!hasPlainLyrics || plainLines.length === 0) return 0;
-    const progress = clamp(currentTime / STAGE_PREVIEW_MAX_SEC, 0, 1);
-    return clamp(Math.floor(progress * plainLines.length), 0, plainLines.length - 1);
-  }, [currentTime, hasPlainLyrics, plainLines]);
 
   const displayIndex = hasLyrics ? (activeIndex >= 0 ? activeIndex : 0) : -1;
   const currentLyricText = hasLyrics && clipLyrics[displayIndex] ? clipLyrics[displayIndex].text : "";
@@ -4632,76 +4757,52 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
       </div>
 
       <div className="relative z-10 flex-1 min-h-0 px-4 py-3 flex flex-col gap-3">
-        {hasLyrics && currentLyricText && (
-          <div className="shrink-0 text-center px-2 py-2">
-            <div
-              className="font-display stage-lyric-current leading-tight"
-              style={{
-                color: "var(--hp-gold)",
-                fontSize: "clamp(1.75rem, 7vw, 2.75rem)",
-              }}
-            >
-              {currentLyricText}
-            </div>
-          </div>
-        )}
-        {hasPlainLyrics && plainLines.length > 0 && (
-          <div className="shrink-0 text-center px-2 py-2">
-            <div
-              className="font-display stage-lyric-current leading-tight"
-              style={{
-                color: "var(--hp-gold)",
-                fontSize: "clamp(1.5rem, 6vw, 2.25rem)",
-              }}
-            >
-              {plainLines[plainActiveIndex]}
-            </div>
-          </div>
-        )}
-        {hasLyrics && (
-          <div ref={lyricsScrollRef} className="stage-lyrics-block flex-1 min-h-0 overflow-y-auto w-full max-w-lg mx-auto text-center px-2">
-            {clipLyrics.map((line, i) => {
-              const isActive = i === displayIndex;
-              const isPast = activeIndex >= 0 && i < activeIndex;
-              return (
+        {hasLyrics ? (
+          <>
+            {currentLyricText && (
+              <div className="shrink-0 text-center px-2 py-2">
                 <div
-                  key={`${i}-${line.timeSeconds}`}
-                  data-lyric-idx={i}
-                  className="font-display py-1.5 leading-snug"
+                  className="font-display stage-lyric-current leading-tight"
                   style={{
-                    color: isActive ? "var(--hp-gold)" : isPast ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.65)",
-                    fontSize: isActive ? "clamp(1.2rem, 4.5vw, 1.65rem)" : "clamp(0.95rem, 3.5vw, 1.1rem)",
-                    fontWeight: isActive ? 600 : 400,
-                    textShadow: isActive ? "0 0 32px rgba(245, 197, 24, 0.35)" : undefined,
+                    color: "var(--hp-gold)",
+                    fontSize: "clamp(1.75rem, 7vw, 2.75rem)",
                   }}
                 >
-                  {line.text}
+                  {currentLyricText}
                 </div>
-              );
-            })}
-          </div>
-        )}
-        {hasPlainLyrics && !hasLyrics && (
-          <div className="flex-1 min-h-0 overflow-y-auto text-center text-sm text-white/60 whitespace-pre-line leading-relaxed px-2">
-            {plainLines.map((line, i) => (
-              <div
-                key={i}
-                className="py-1 font-display"
-                style={{
-                  color: i === plainActiveIndex ? "var(--hp-gold)" : "rgba(255,255,255,0.45)",
-                  fontSize: i === plainActiveIndex ? "1.15rem" : "0.95rem",
-                }}
-              >
-                {line}
               </div>
-            ))}
-          </div>
-        )}
-        {!hasLyrics && !hasPlainLyrics && (
-          <div className="flex-1 grid place-items-center">
-            <div className="font-display text-[28px] text-white/50 tracking-[0.08em] text-center px-4">
-              {state.lyricsStatus === "loading" ? "Loading lyrics…" : "SING IT!"}
+            )}
+            <div ref={lyricsScrollRef} className="stage-lyrics-block flex-1 min-h-0 overflow-y-auto w-full max-w-lg mx-auto text-center px-2">
+              {clipLyrics.map((line, i) => {
+                const isActive = i === displayIndex;
+                const isPast = activeIndex >= 0 && i < activeIndex;
+                return (
+                  <div
+                    key={`${i}-${line.timeSeconds}`}
+                    data-lyric-idx={i}
+                    className="font-display py-1.5 leading-snug"
+                    style={{
+                      color: isActive ? "var(--hp-gold)" : isPast ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.65)",
+                      fontSize: isActive ? "clamp(1.2rem, 4.5vw, 1.65rem)" : "clamp(0.95rem, 3.5vw, 1.1rem)",
+                      fontWeight: isActive ? 600 : 400,
+                      textShadow: isActive ? "0 0 32px rgba(245, 197, 24, 0.35)" : undefined,
+                    }}
+                  >
+                    {line.text}
+                  </div>
+                );
+              })}
             </div>
+          </>
+        ) : state.lyricsStatus === "loading" ? (
+          <div className="flex-1 grid place-items-center">
+            <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45 animate-pulse">
+              Checking for lyrics…
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 grid place-items-center">
+            <StageFreestyleState />
           </div>
         )}
       </div>

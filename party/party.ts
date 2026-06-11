@@ -40,15 +40,25 @@ function shuffleArr(arr: string[]) {
   return a;
 }
 
-// Maximum plausible time (ms) for a guesser to lock in a guess. Recorded guess
-// times outside the open interval (0, PARTY_ROUND_MS) are treated as garbage
-// and ignored ONLY when picking the single fastest-correct guesser — a sane-or-
-// not time never changes whether a guess counts as correct, just the speed
-// bonus eligibility. This guards against clock-skew / NaN / negative values.
+// Maximum plausible time (ms) for a guesser to lock in a guess. All guess
+// times are measured on the SERVER's clock (server receive time minus the
+// server-recorded roundStartedAt) and clamped into [0, PARTY_ROUND_MS] at
+// write time — client timestamps are never trusted, so negative or absurd
+// elapsed values can't be recorded. isSaneGuessTime is a belt-and-braces
+// check used ONLY when picking the single fastest-correct guesser — a sane-
+// or-not time never changes whether a guess counts as correct, just the
+// speed bonus eligibility.
 const PARTY_ROUND_MS = 5 * 60 * 1000;
 
 function isSaneGuessTime(t: unknown): t is number {
-  return typeof t === "number" && Number.isFinite(t) && t > 0 && t < PARTY_ROUND_MS;
+  return typeof t === "number" && Number.isFinite(t) && t >= 0 && t <= PARTY_ROUND_MS;
+}
+
+// Sanitize an elapsed guess time computed from server clocks: non-finite
+// values become 0, everything is clamped into [0, PARTY_ROUND_MS].
+function clampGuessTime(elapsed: number): number {
+  if (!Number.isFinite(elapsed)) return 0;
+  return Math.max(0, Math.min(PARTY_ROUND_MS, elapsed));
 }
 
 // The ONLY players who may guess in the current round: online players who are
@@ -186,7 +196,10 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
       return {
         ...state,
         phase: "round",
-        roundStartedAt: action.now as number,
+        // Authoritative round start on the SERVER's clock (serverNow is
+        // injected by applyAction). Elapsed guess times are always computed
+        // against this — never against a client-supplied timestamp.
+        roundStartedAt: action.serverNow as number,
         guesses: {},
         guessTimes: {},
       };
@@ -195,7 +208,6 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
       if (state.phase !== "round") return state;
       const deviceId = action.deviceId as string;
       const targetDeviceId = action.targetDeviceId as string;
-      const now = action.now as number;
       const song = state.songs.find((s) => s.id === state.order[state.roundIdx]);
       if (!song) return state;
       // The song owner can never guess in their own round.
@@ -206,10 +218,17 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
       if (!state.players.some((p) => p.deviceId === targetDeviceId)) return state;
       // One locked-in guess per player — never overwrite an existing guess.
       if (state.guesses[deviceId] != null) return state;
+      // Elapsed time = server receive time minus server-recorded round start.
+      // Both sides of the subtraction come from the server's own clock, so
+      // client clock skew can never produce negative or absurd times; clamp
+      // into [0, PARTY_ROUND_MS] as a final guard.
+      const elapsed = clampGuessTime(
+        (action.serverNow as number) - state.roundStartedAt
+      );
       return {
         ...state,
         guesses: { ...state.guesses, [deviceId]: targetDeviceId },
-        guessTimes: { ...state.guessTimes, [deviceId]: now - state.roundStartedAt },
+        guessTimes: { ...state.guessTimes, [deviceId]: elapsed },
       };
     }
     case "revealRound": {
@@ -734,7 +753,14 @@ export default class GameServer implements Party.Server {
   }
 
   applyAction(action: Record<string, unknown>, deviceId: string) {
-    const full = { ...action, deviceId: (action.deviceId as string) || deviceId };
+    // serverNow is stamped here, AFTER spreading the client action, so a
+    // client can never spoof it. It is the single authoritative clock used
+    // for roundStartedAt and elapsed guess times in the party reducer.
+    const full = {
+      ...action,
+      deviceId: (action.deviceId as string) || deviceId,
+      serverNow: Date.now(),
+    };
     if (this.gameType === "blitz") {
       this.state = blitzReducer(this.state as BlitzState, full);
     } else {
