@@ -1600,12 +1600,12 @@ function BlitzLobbyScreen({ state, dispatch, deviceId, onLeave }) {
               const isMe = p.deviceId === deviceId;
               const hasVoted = !!(state.startVotes && state.startVotes[p.deviceId]);
               return (
-                <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[64px] shrink-0">
-                  <div className="relative">
+                <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[64px] shrink-0 pt-2">
+                  <div className="relative overflow-visible">
                     <Avatar name={p.name} size={42} dim={p.online === false} />
                     {hasVoted && onlinePlayers.length >= 2 && (
                       <div
-                        className="absolute -top-1 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
+                        className="absolute -top-2 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
                         style={{ background: "var(--hp-gold)", color: "#08080C" }}
                       >✓</div>
                     )}
@@ -2324,12 +2324,12 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
               const isHostP = p.deviceId === state.hostDeviceId;
               const songCount = state.songs.filter(s => s.ownerDeviceId === p.deviceId).length;
               return (
-                <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[64px] shrink-0">
-                  <div className="relative">
+                <div key={p.deviceId} className="flex flex-col items-center gap-1 min-w-[64px] shrink-0 pt-2">
+                  <div className="relative overflow-visible">
                     <Avatar name={p.name} size={42} dim={p.online === false} />
                     {isHostP && (
                       <div
-                        className="absolute -top-1 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
+                        className="absolute -top-2 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
                         style={{ background: "var(--hp-gold)", color: "#08080C" }}
                       >★</div>
                     )}
@@ -2392,7 +2392,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
 
         {atSongLimit && (
           <div className="mt-4 rounded-2xl border border-[var(--hp-neon)]/30 bg-[var(--hp-neon)]/10 px-4 py-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--hp-neon)]">
-            All {songsPerPlayer} song{songsPerPlayer === 1 ? "" : "s"} added — waiting for host
+            {songsPerPlayer === 1 ? "1 song added — waiting for host" : `All ${songsPerPlayer} songs added — waiting for host`}
           </div>
         )}
 
@@ -4197,7 +4197,16 @@ function StageSearchScreen({ state, dispatch }) {
 // a fast attack and a slow release so it tracks the voice in real time but
 // falls back naturally when the user stops. This is purely visual — the mic
 // detection / level value is taken from `level` unchanged.
-function MicLevelBars({ level, slots = 14, height = 28, className }) {
+//
+// Threshold marker positions (0–1 fraction along the bar row) with labels
+// shown below so users know how loud is enough for a good score.
+const MIC_THRESHOLDS = [
+  { frac: 0.27, label: "OK" },
+  { frac: 0.57, label: "GOOD" },
+  { frac: 0.87, label: "GREAT" },
+];
+
+function MicLevelBars({ level, slots = 20, height = 28, className }) {
   const [display, setDisplay] = useStateApp(0);
   const displayRef = useRefApp(0);
   const targetRef = useRefApp(0);
@@ -4233,35 +4242,59 @@ function MicLevelBars({ level, slots = 14, height = 28, className }) {
   const v = clamp(display, 0, 1);
   const filled = v * slots;
   return (
-    <div
-      className={cx("flex items-stretch gap-[3px] w-full", className)}
-      aria-hidden="true"
-      role="meter"
-      aria-valuenow={Math.round(v * 100)}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      style={{ height: `${height}px` }}
-    >
-      {Array.from({ length: slots }).map((_, i) => {
-        const slotFill = clamp(filled - i, 0, 1);
-        return (
-          <div
-            key={i}
-            className="relative flex-1 min-w-0 rounded-[2px] border border-white/15"
-          >
+    <div className={cx("w-full", className)} aria-hidden="true" role="meter" aria-valuenow={Math.round(v * 100)} aria-valuemin={0} aria-valuemax={100}>
+      {/* Bar row */}
+      <div
+        className="relative flex items-stretch gap-[3px] w-full"
+        style={{ height: `${height}px` }}
+      >
+        {Array.from({ length: slots }).map((_, i) => {
+          const slotFill = clamp(filled - i, 0, 1);
+          return (
             <div
-              className="absolute inset-y-[1px] left-[1px] rounded-[1px]"
-              style={{
-                width: `calc(${slotFill * 100}% - 1px)`,
-                background: "var(--stage-accent)",
-                opacity: slotFill > 0.02 ? 1 : 0,
-                boxShadow: slotFill > 0.4 ? "0 0 6px var(--stage-accent)" : undefined,
-                transition: "opacity 60ms linear",
-              }}
-            />
-          </div>
-        );
-      })}
+              key={i}
+              className="relative flex-1 min-w-0 rounded-[2px] border border-white/15"
+            >
+              <div
+                className="absolute inset-y-[1px] left-[1px] rounded-[1px]"
+                style={{
+                  width: `calc(${slotFill * 100}% - 1px)`,
+                  background: "var(--stage-accent)",
+                  opacity: slotFill > 0.02 ? 1 : 0,
+                  boxShadow: slotFill > 0.4 ? "0 0 6px var(--stage-accent)" : undefined,
+                  transition: "opacity 60ms linear",
+                }}
+              />
+            </div>
+          );
+        })}
+        {/* Threshold marker lines overlaid on the bar row */}
+        {MIC_THRESHOLDS.map(({ frac }) => (
+          <div
+            key={frac}
+            className="absolute top-0 bottom-0 w-[2px] pointer-events-none"
+            style={{ left: `calc(${frac * 100}% - 1px)`, background: "rgba(255,255,255,0.35)" }}
+          />
+        ))}
+      </div>
+      {/* Labels row — positioned below each marker */}
+      <div className="relative w-full" style={{ height: "11px", marginTop: "2px" }}>
+        {MIC_THRESHOLDS.map(({ frac, label }) => (
+          <span
+            key={label}
+            className="absolute font-mono uppercase tracking-widest text-white/40"
+            style={{
+              left: `${frac * 100}%`,
+              transform: "translateX(-50%)",
+              fontSize: "8px",
+              lineHeight: 1,
+              top: 0,
+            }}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -4528,6 +4561,7 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
   const [micLevel, setMicLevel] = useStateApp(0);
   const [previewFailed, setPreviewFailed] = useStateApp(false);
   const [analysisFailed, setAnalysisFailed] = useStateApp(false);
+  const [audioProgress, setAudioProgress] = useStateApp(0);
 
   const lyricsScrollRef = useRefApp(null);
   const allLyrics = state.lyrics || [];
@@ -4563,6 +4597,7 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
     setAnalysisFailed(false);
     setCurrentTime(0);
     setPitchHz(0);
+    setAudioProgress(0);
   }, [performanceRun]);
 
   const finishPerformance = useCallbackApp(() => {
@@ -4591,6 +4626,12 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
     audio.setAttribute("playsinline", "");
     audio.crossOrigin = "anonymous";
     audio.preload = "auto";
+    // Declared at effect scope so the cleanup return can remove it.
+    const onTimeUpdate = () => {
+      if (cancelled) return;
+      const dur = Math.min(STAGE_PREVIEW_MAX_SEC, audio.duration || STAGE_PREVIEW_MAX_SEC);
+      setAudioProgress(clamp(audio.currentTime / dur, 0, 1));
+    };
 
     const run = async () => {
       const PitchDetector = await waitForPitchy();
@@ -4721,6 +4762,9 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
         audio.addEventListener("error", () => {
           setPreviewFailed(true);
         }, { once: true });
+        // Drive the progress bar from the real audio clock so it always
+        // reflects true playback position capped at the 30s preview max.
+        audio.addEventListener("timeupdate", onTimeUpdate);
       } catch (e) {
         setPreviewFailed(true);
       }
@@ -4730,6 +4774,7 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
     return () => {
       cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
       try { audio.pause(); } catch (err) {}
       audio.removeAttribute("src");
       try { audio.load(); } catch (err) {}
@@ -4765,7 +4810,7 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
   }
 
   return (
-    <div className="stage-performance relative min-h-[100dvh] overflow-hidden flex flex-col">
+    <div className="stage-performance relative flex-1 min-h-0 overflow-hidden flex flex-col">
       {track.albumArt && (
         <img
           src={track.albumArt}
@@ -4777,7 +4822,7 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
 
       <div className="relative z-10 px-4 pt-4">
         <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full transition-all duration-100" style={{ width: `${progress * 100}%`, background: STAGE_ACCENT }} />
+          <div className="h-full transition-all duration-100" style={{ width: `${audioProgress * 100}%`, background: STAGE_ACCENT }} />
         </div>
       </div>
 
@@ -4793,7 +4838,7 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
         <div className="font-display text-[20px] tabular shrink-0" style={{ color: STAGE_ACCENT }}>{secondsLeft}</div>
       </div>
 
-      <div className="relative z-10 flex-1 min-h-0 px-4 py-3 flex flex-col gap-3">
+      <div className="relative z-10 flex-1 min-h-0 px-4 py-3 flex flex-col gap-3 overflow-hidden">
         {hasLyrics ? (
           <>
             {currentLyricText && (
@@ -5048,7 +5093,13 @@ function StageModeView({ onReset }) {
   }, [state.lyricsLoadKey, dispatch]);
 
   return (
-    <div className="hp-stage relative min-h-[100dvh] overflow-hidden flex flex-col fade-enter">
+    <div className={cx(
+      "hp-stage relative overflow-hidden flex flex-col fade-enter",
+      // During a performance the whole view (header + screen) must fit the
+      // viewport exactly so the bottom mic meter is never pushed below the
+      // fold; other stage screens may grow and scroll normally.
+      state.screen === "performance" ? "h-[100dvh]" : "min-h-[100dvh]"
+    )}>
       <HpStageBackdrop topStrip />
       <div className="relative z-10 flex flex-col flex-1 min-h-0">
       <div className="hp-header-bar pt-6 px-6 md:px-0 flex items-center justify-between">
