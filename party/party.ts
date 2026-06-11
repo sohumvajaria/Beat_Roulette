@@ -20,6 +20,17 @@ function initialState() {
     roundIdx: 0,
     guesses: {} as Record<string, string>,
     guessTimes: {} as Record<string, number>,
+    // Snapshot of every revealed round (song + who guessed whom), retained
+    // through the "final" phase so the standings screen can show a full
+    // round-by-round breakdown once the game is over.
+    roundHistory: [] as {
+      songId: string;
+      title: string;
+      artist: string;
+      ownerDeviceId: string;
+      ownerName: string;
+      guesses: Record<string, string>;
+    }[],
     roundStartedAt: 0,
     scores: {} as Record<string, number>,
     scoreDeltas: {} as Record<string, number>,
@@ -187,6 +198,7 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
         scoreDeltas: {},
         guesses: {},
         guessTimes: {},
+        roundHistory: [],
         roundStartedAt: 0,
         fastestCorrect: null,
       };
@@ -310,6 +322,19 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
         streaks,
         scoreDeltas: deltas,
         fastestCorrect: fastest,
+        // Record this round for the final-screen breakdown. Guess targets are
+        // only ever DISPLAYED on the final screen, after the game is over.
+        roundHistory: [
+          ...state.roundHistory,
+          {
+            songId: song.id,
+            title: song.title,
+            artist: song.artist,
+            ownerDeviceId: song.ownerDeviceId,
+            ownerName: song.ownerName,
+            guesses: { ...state.guesses },
+          },
+        ],
       };
     }
     case "nextRound": {

@@ -3158,6 +3158,11 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
   const winnerScore = sorted[0]?.score ?? 0;
   const winners = sorted.filter(s => s.score === winnerScore && winnerScore > 0);
 
+  const playersById = Object.fromEntries(state.players.map(p => [p.deviceId, p]));
+  // Per-round guess history retained by the server through the final phase.
+  // This is the ONE screen allowed to show who guessed whom — the game is over.
+  const roundHistory = Array.isArray(state.roundHistory) ? state.roundHistory : [];
+
   const confetti = useMemoApp(() =>
     new Array(28).fill(0).map((_, i) => ({
       left: Math.random() * 100,
@@ -3258,30 +3263,73 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
             const isWinner = row.score === winnerScore && winnerScore > 0;
             return (
               <div key={row.deviceId} className={cx(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
+                "flex items-center gap-3 rounded-2xl px-4 py-4 border",
                 cinematic
                   ? (isWinner ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35")
                   : (isWinner ? "border-[#1DB954]/40 bg-[#1DB954]/[0.08]" : "border-[#282828] bg-[#181818]")
               )}>
                 <div className={cx(
-                  "w-7 h-7 rounded-full grid place-items-center text-xs font-semibold tabular",
+                  "w-9 h-9 rounded-full grid place-items-center text-sm font-semibold tabular",
                   cinematic
                     ? (i === 0 ? "bg-[var(--hp-gold)]/20 text-[var(--hp-gold)]" : i === 1 ? "bg-[#3a3a3a] text-[#B3B3B3]" : i === 2 ? "bg-[#282828] text-[#B3B3B3]" : "bg-black/40 text-[#535353]")
                     : (i === 0 ? "bg-[#1DB954]/20 text-[#1DB954]" : i === 1 ? "bg-[#3a3a3a] text-[#B3B3B3]" : i === 2 ? "bg-[#282828] text-[#B3B3B3]" : "bg-[#181818] text-[#535353]")
                 )}>{i + 1}</div>
-                <Avatar name={row.name} size={26} />
-                <div className="text-sm font-medium flex-1 truncate">
+                <Avatar name={row.name} size={34} />
+                <div className="text-base font-medium flex-1 truncate">
                   {row.name}
                   {row.deviceId === deviceId && (
-                    <span className={cx("ml-1 text-[10px]", !cinematic && "text-[#1DB954]")} style={cinematic ? { color: "var(--hp-gold)" } : undefined}>you</span>
+                    <span className={cx("ml-1 text-[11px]", !cinematic && "text-[#1DB954]")} style={cinematic ? { color: "var(--hp-gold)" } : undefined}>you</span>
                   )}
                 </div>
-                <div className="text-sm font-mono tabular">{row.score}</div>
+                <div className="text-base font-mono tabular">{row.score}</div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {roundHistory.length > 0 && (
+        <div className="mt-6 px-6">
+          <div className={cx(
+            "uppercase tracking-[0.18em]",
+            cinematic ? "font-mono text-[10px] text-white/40" : "text-[11px] text-white/40"
+          )}>Round by round</div>
+          <div className="mt-3 space-y-2">
+            {roundHistory.map((entry, i) => {
+              const guessPairs = Object.entries(entry.guesses || {});
+              return (
+                <div key={`${i}-${entry.songId}`} className={cx(
+                  "rounded-xl px-3.5 py-3 border",
+                  cinematic ? "border-white/12 bg-black/35" : "border-[#282828] bg-[#181818]"
+                )}>
+                  <div className="text-[13px] leading-snug">
+                    <span className="font-semibold">Round {i + 1}</span>
+                    <span className="text-white/65"> ({entry.title} – {entry.artist})</span>
+                    <span className="text-white/40 text-[11px]"> · {entry.ownerName}'s pick</span>
+                  </div>
+                  <div className="mt-1 text-[12px] leading-relaxed text-white/60">
+                    {guessPairs.length === 0 ? (
+                      <span className="text-white/35">no guesses locked in</span>
+                    ) : (
+                      guessPairs.map(([gid, tid], j) => {
+                        const right = tid === entry.ownerDeviceId;
+                        return (
+                          <span key={gid}>
+                            <span className={right ? "font-medium" : undefined} style={right ? { color: cinematic ? "var(--hp-gold)" : "#1DB954" } : undefined}>
+                              {playersById[gid]?.name || "?"} guessed {playersById[tid]?.name || "?"}{right ? " ✓" : ""}
+                            </span>
+                            {j < guessPairs.length - 1 ? ", " : ""}
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="px-6 pt-8 pb-10">
         {isHost ? (
