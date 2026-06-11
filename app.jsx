@@ -3381,7 +3381,7 @@ const STAGE_PREVIEW_MAX_SEC = 30;
 const MIC_INPUT_GAIN = 5;
 const PITCH_CLARITY_MIN = 0.82;
 const PITCH_CLARITY_VOICE_MIN = 0.84;
-const PITCH_CLARITY_SCORE_MIN = 0.74;
+const PITCH_CLARITY_SCORE_MIN = 0.8;
 const PITCH_RMS_MIN = 0.004;
 const PITCH_SCORE_RMS_MIN = 0.002;
 const PITCH_HZ_MIN = 80;
@@ -3568,10 +3568,19 @@ function detectVoicedPitch(detector, buffer, sampleRate, rms) {
   return pitch;
 }
 
-/** Looser pitch gate for scoring — must not share the bleed / spectrum filters used for the meter. */
-function detectMicPitchForScore(detector, buffer, sampleRate) {
+/**
+ * Pitch gate for scoring — looser than the meter (no bleed / spectrum filters,
+ * which can zero out real singing) but a frame only counts as sung when BOTH:
+ *   1. pitchy clarity clears PITCH_CLARITY_SCORE_MIN (real voiced pitch), and
+ *   2. rms clears the mic meter's adaptive volume gate (same noise-floor gate
+ *      as micVoiceMeterLevel), so quiet room noise never registers as singing.
+ * Frames that fail either gate return null and contribute ZERO to the score.
+ */
+function detectMicPitchForScore(detector, buffer, sampleRate, tracker) {
   const rms = rmsFromTimeDomain(buffer);
   if (rms <= PITCH_SCORE_RMS_MIN) return null;
+  // Mic meter's volume gate: must rise above the adaptive noise floor.
+  if (tracker && rms <= tracker.noiseFloor * VOICE_RMS_ABOVE_NOISE_FACTOR + 0.0025) return null;
   const [pitch, clarity] = detector.findPitch(buffer, sampleRate);
   if (clarity <= PITCH_CLARITY_SCORE_MIN) return null;
   if (pitch < 85 || pitch > 1100) return null;
@@ -3725,17 +3734,24 @@ function scoreLabelFor(score, pitchSampleCount) {
   return row ? row.label : SCORE_LABELS[SCORE_LABELS.length - 1].label;
 }
 
-function computeSingingAccuracy(pitchSamples, voicedFrames, refMatch) {
+/**
+ * Pitch stability: fraction of consecutive voiced samples whose pitch moves
+ * smoothly (held notes / glides) rather than jumping erratically the way
+ * noise-triggered detections do. 0 when there's too little voiced input.
+ */
+function computePitchStability(pitchSamples) {
   const voiced = pitchSamples.filter((s) => s.hz > 0);
-  if (voiced.length < 4) return refMatch != null ? refMatch * 0.35 : 0.2;
-
-  const sampleDensity = clamp(voiced.length / Math.max(voicedFrames, 1), 0, 1);
-  const sustained = voiced.length >= 18 ? 1 : clamp(voiced.length / 18, 0, 1);
-  let baseline = clamp(0.45 + sampleDensity * 0.25 + sustained * 0.2, 0, 0.85);
-
-  if (refMatch == null) return baseline;
-  if (refMatch >= 0.25) return clamp(refMatch * 0.55 + baseline * 0.45, 0, 1);
-  return clamp(baseline * 0.85 + refMatch * 0.15, 0, 1);
+  if (voiced.length < 8) return 0;
+  let steady = 0;
+  let pairs = 0;
+  for (let i = 1; i < voiced.length; i++) {
+    const dt = voiced[i].time - voiced[i - 1].time;
+    if (dt <= 0 || dt > 0.25) continue; // gap between phrases — not consecutive
+    pairs += 1;
+    if (Math.abs(pitchCentsDiff(voiced[i].hz, voiced[i - 1].hz)) <= 150) steady += 1;
+  }
+  if (pairs < 6) return 0;
+  return steady / pairs;
 }
 
 function computeRefMatchAccuracy(pitchSamples) {
@@ -3745,19 +3761,35 @@ function computeRefMatchAccuracy(pitchSamples) {
   return hits / withRef.length;
 }
 
+/**
+ * Score is driven by how much of the clip had a CLEAR voiced pitch (frames
+ * that passed both the clarity gate and the mic meter's volume gate) combined
+ * with pitch stability. There is no neutral baseline: frames with no voiced
+ * input contribute zero, so silence or background noise scores ~0.
+ */
 function computeStageScore(pitchSamples, totalFrames, voicedFrames) {
   if (totalFrames <= 0) return { score: 0, label: "NO SIGNAL — was your mic on?" };
 
   const sampleCount = pitchSamples.length;
-  const voicedRatio = Math.max(voicedFrames / totalFrames, sampleCount / totalFrames);
-  if (voicedRatio < 0.05 && sampleCount < 6) {
-    return { score: 0, label: "NO SIGNAL — was your mic on?" };
+  const voicedRatio = clamp(voicedFrames / totalFrames, 0, 1);
+  // Silent (or noise-only) take: nothing cleared the gates — hard zero.
+  if (sampleCount < 6 || voicedRatio < 0.04) {
+    return { score: 0, label: scoreLabelFor(0, sampleCount) };
   }
 
+  // Presence saturates around 55% of frames voiced — previews have
+  // instrumental stretches, so nobody sings every frame.
+  const presence = clamp(voicedRatio / 0.55, 0, 1);
+  const stability = computePitchStability(pitchSamples);
   const refMatch = computeRefMatchAccuracy(pitchSamples);
-  const accuracy = computeSingingAccuracy(pitchSamples, Math.max(voicedFrames, sampleCount), refMatch);
-  const rawScore = clamp(voicedRatio * 55 + accuracy * 45, 0, 100);
-  const score = Math.max(1, Math.round(rawScore));
+  // Melody component: match against the track's pitch when we have a usable
+  // reference, otherwise fall back to stability (sustained controlled notes).
+  const melody = refMatch != null ? refMatch : stability;
+
+  // Everything scales with presence: stability/melody can only add points in
+  // proportion to how much actual singing there was.
+  const rawScore = clamp(presence * (50 + stability * 25 + melody * 25), 0, 100);
+  const score = Math.round(rawScore);
   return { score, label: scoreLabelFor(score, sampleCount) };
 }
 
@@ -4603,7 +4635,12 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
             }
           }
 
-          const scorePitch = detectMicPitchForScore(micDetector, buffer, ctx.sampleRate);
+          const scorePitch = detectMicPitchForScore(
+            micDetector,
+            buffer,
+            ctx.sampleRate,
+            micVoiceTrackerRef.current
+          );
           const micSample = detectHumanVoicePitch(
             micDetector,
             analyser,
