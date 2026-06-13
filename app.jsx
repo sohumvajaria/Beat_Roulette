@@ -1924,6 +1924,292 @@ function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave 
   );
 }
 
+// ---------- Shareable results image ----------
+// Renders the final standings to a 1080x1920 PNG (phone-story sized) in the
+// cinematic style, then shares it via the Web Share API (so it can go straight
+// to a story or chat) or falls back to downloading the file. Pure
+// presentation — never touches game state or scoring.
+const SHARE_W = 1080, SHARE_H = 1920;
+
+function shareRoundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, rr); return; }
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+function shareFitText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + "…").width > maxWidth) t = t.slice(0, -1);
+  return t + "…";
+}
+
+// Simplified canvas take on WheelSVG — same palette, gold hub, BR mark.
+function drawShareWheel(ctx, cx0, cy0, rOuter) {
+  const palette = ["#F5C518", "#FF2D95", "#1DB954", "#F4ECD3"];
+  const rInner = rOuter * 0.31;
+  ctx.beginPath(); ctx.arc(cx0, cy0, rOuter * 1.09, 0, Math.PI * 2);
+  ctx.fillStyle = "#120d1c"; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = "#000"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx0, cy0, rOuter * 1.02, 0, Math.PI * 2);
+  ctx.lineWidth = 2.5; ctx.strokeStyle = "rgba(245,197,24,0.9)"; ctx.stroke();
+  for (let i = 0; i < 12; i++) {
+    const a0 = (i * 30 - 90) * Math.PI / 180;
+    const a1 = ((i + 1) * 30 - 90) * Math.PI / 180;
+    ctx.beginPath();
+    ctx.arc(cx0, cy0, rOuter, a0, a1);
+    ctx.arc(cx0, cy0, rInner, a1, a0, true);
+    ctx.closePath();
+    ctx.fillStyle = palette[i % palette.length];
+    ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "#08080C"; ctx.stroke();
+  }
+  for (let i = 0; i < 24; i++) {
+    const ang = (i * 15) * Math.PI / 180;
+    ctx.beginPath();
+    ctx.arc(cx0 + rOuter * 1.055 * Math.cos(ang), cy0 + rOuter * 1.055 * Math.sin(ang), Math.max(2, rOuter * 0.018), 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(245,197,24,0.85)"; ctx.fill();
+  }
+  const hub = ctx.createRadialGradient(cx0, cy0 - rInner * 0.4, rInner * 0.1, cx0, cy0, rInner);
+  hub.addColorStop(0, "#F8D85A"); hub.addColorStop(0.55, "#F5C518"); hub.addColorStop(1, "#9A7505");
+  ctx.beginPath(); ctx.arc(cx0, cy0, rInner, 0, Math.PI * 2);
+  ctx.fillStyle = hub; ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = "#08080C"; ctx.stroke();
+  ctx.fillStyle = "#08080C";
+  ctx.font = `${Math.round(rInner * 0.62)}px 'Bebas Neue', sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("BR", cx0, cy0 + rInner * 0.05);
+}
+
+async function buildResultsImage({ modeLabel, rows, winnerScore, winners }) {
+  // Make sure the display fonts are actually loaded before drawing — canvas
+  // silently falls back to a system font otherwise.
+  try {
+    await Promise.all([
+      document.fonts.load("100px 'Bebas Neue'"),
+      document.fonts.load("600 30px Inter"),
+      document.fonts.load("700 30px Inter"),
+    ]);
+  } catch { /* draw with fallback fonts */ }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = SHARE_W; canvas.height = SHARE_H;
+  const ctx = canvas.getContext("2d");
+  const setSpacing = (px) => { try { ctx.letterSpacing = px; } catch { /* unsupported */ } };
+
+  // Backdrop: near-black with a gold glow up top and magenta glow below.
+  ctx.fillStyle = "#08080C";
+  ctx.fillRect(0, 0, SHARE_W, SHARE_H);
+  let glow = ctx.createRadialGradient(540, 240, 0, 540, 240, 760);
+  glow.addColorStop(0, "rgba(245,197,24,0.10)"); glow.addColorStop(1, "rgba(245,197,24,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
+  glow = ctx.createRadialGradient(540, SHARE_H, 0, 540, SHARE_H, 700);
+  glow.addColorStop(0, "rgba(255,45,149,0.08)"); glow.addColorStop(1, "rgba(255,45,149,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
+
+  drawShareWheel(ctx, 540, 240, 125);
+
+  // Title: BEAT in white, ROULETTE in gold — same split as the homepage.
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  setSpacing("2px");
+  ctx.font = "118px 'Bebas Neue', sans-serif";
+  const beat = "BEAT ", roulette = "ROULETTE";
+  const beatW = ctx.measureText(beat).width;
+  const tx = 540 - (beatW + ctx.measureText(roulette).width) / 2;
+  ctx.fillStyle = "#FFFFFF"; ctx.fillText(beat, tx, 525);
+  ctx.fillStyle = "#F5C518"; ctx.fillText(roulette, tx + beatW, 525);
+
+  ctx.textAlign = "center";
+  setSpacing("6px");
+  ctx.font = "600 28px Inter, sans-serif";
+  ctx.fillStyle = "#FF2D95";
+  ctx.fillText(`★  ${(modeLabel || "").toUpperCase()} · FINAL SCORE  ★`, 540, 585);
+  setSpacing("0px");
+
+  // Winner panel.
+  const panelY = 640, panelH = 250;
+  shareRoundRect(ctx, 80, panelY, 920, panelH, 32);
+  ctx.fillStyle = "rgba(245,197,24,0.08)"; ctx.fill();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = "rgba(245,197,24,0.4)"; ctx.stroke();
+
+  setSpacing("5px");
+  ctx.font = "600 26px Inter, sans-serif";
+  ctx.fillStyle = "#FF2D95";
+  ctx.fillText(winners.length > 1 ? "IT'S A TIE" : "WINNER", 540, panelY + 62);
+  setSpacing("0px");
+
+  const winnerName = winners.length === 0
+    ? "NOBODY, SOMEHOW"
+    : winners.map(w => w.name.toUpperCase()).join(" & ");
+  let nameSize = 96;
+  ctx.font = `${nameSize}px 'Bebas Neue', sans-serif`;
+  while (nameSize > 40 && ctx.measureText(winnerName).width > 840) {
+    nameSize -= 4;
+    ctx.font = `${nameSize}px 'Bebas Neue', sans-serif`;
+  }
+  ctx.fillStyle = "#F5C518";
+  ctx.fillText(winnerName, 540, panelY + 162);
+
+  ctx.font = "500 27px Inter, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fillText(`${winnerScore} POINT${winnerScore === 1 ? "" : "S"} · TASTE VALIDATED`, 540, panelY + 214);
+
+  // Standings list. Row height adapts to player count; very large lobbies
+  // overflow into a "+N more" line instead of shrinking below readable.
+  const listX = 80, listW = 920;
+  let y = panelY + panelH + 64;
+  ctx.textAlign = "left";
+  setSpacing("4px");
+  ctx.font = "600 24px Inter, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.fillText("ALL STANDINGS", listX + 4, y);
+  setSpacing("0px");
+  y += 30;
+
+  const bottom = SHARE_H - 110;
+  const maxVisible = 11;
+  const visible = rows.length > maxVisible ? rows.slice(0, maxVisible - 1) : rows;
+  const overflow = rows.length - visible.length;
+  const gap = 16;
+  const avail = bottom - y - gap * Math.max(0, visible.length - 1) - (overflow > 0 ? 56 : 0);
+  const rowH = Math.max(64, Math.min(112, Math.floor(avail / Math.max(1, visible.length))));
+
+  visible.forEach((row, i) => {
+    const isWinner = row.score === winnerScore && winnerScore > 0;
+    shareRoundRect(ctx, listX, y, listW, rowH, 24);
+    ctx.fillStyle = isWinner ? "rgba(245,197,24,0.10)" : "rgba(0,0,0,0.45)";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = isWinner ? "rgba(245,197,24,0.4)" : "rgba(255,255,255,0.12)";
+    ctx.stroke();
+
+    const cy = y + rowH / 2;
+    ctx.textBaseline = "middle";
+
+    // Rank badge.
+    const badgeR = rowH * 0.26;
+    ctx.beginPath(); ctx.arc(listX + 58, cy, badgeR, 0, Math.PI * 2);
+    ctx.fillStyle = i === 0 ? "rgba(245,197,24,0.2)" : "rgba(0,0,0,0.4)";
+    ctx.fill();
+    ctx.textAlign = "center";
+    ctx.font = `700 ${Math.round(rowH * 0.26)}px Inter, sans-serif`;
+    ctx.fillStyle = i === 0 ? "#F5C518" : "rgba(255,255,255,0.55)";
+    ctx.fillText(String(i + 1), listX + 58, cy + 1);
+
+    // Avatar disc — same hash colors and initials as the in-app Avatar.
+    const avR = rowH * 0.3;
+    const avX = listX + 128;
+    ctx.beginPath(); ctx.arc(avX, cy, avR, 0, Math.PI * 2);
+    ctx.fillStyle = colorFor(row.name); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = `700 ${Math.round(avR * 0.78)}px Inter, sans-serif`;
+    ctx.fillText(initials(row.name), avX, cy + 1);
+
+    // Score, right-aligned; then the name fills whatever is left.
+    ctx.textAlign = "right";
+    ctx.font = `600 ${Math.round(rowH * 0.32)}px Inter, sans-serif`;
+    ctx.fillStyle = isWinner ? "#F5C518" : "#FFFFFF";
+    const scoreStr = String(row.score);
+    ctx.fillText(scoreStr, listX + listW - 36, cy + 1);
+    const scoreW = ctx.measureText(scoreStr).width;
+
+    ctx.textAlign = "left";
+    ctx.font = `600 ${Math.round(rowH * 0.3)}px Inter, sans-serif`;
+    ctx.fillStyle = "#FFFFFF";
+    const nameX = avX + avR + 26;
+    ctx.fillText(
+      shareFitText(ctx, row.name, listX + listW - 36 - scoreW - 28 - nameX),
+      nameX, cy + 1
+    );
+
+    y += rowH + gap;
+  });
+
+  if (overflow > 0) {
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "600 24px Inter, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillText(`+ ${overflow} MORE PLAYER${overflow === 1 ? "" : "S"}`, 540, y + 24);
+  }
+
+  // Footer.
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  setSpacing("4px");
+  ctx.font = "500 23px Inter, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.3)";
+  const dateStr = new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+  ctx.fillText(`BEAT ROULETTE · ${dateStr.toUpperCase()}`, 540, SHARE_H - 44);
+  setSpacing("0px");
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("canvas toBlob failed"))), "image/png");
+  });
+}
+
+async function shareResultsImage(payload) {
+  const blob = await buildResultsImage(payload);
+  const file = new File([blob], "beat-roulette-results.png", { type: "image/png" });
+
+  // Web Share with files (mobile): straight to story / chat.
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: "Beat Roulette", text: "Beat Roulette — final standings" });
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // user closed the share sheet
+      // real failure — fall through to download
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function ShareResultsButton({ cinematic = true, modeLabel, rows, winnerScore, winners, className }) {
+  const [busy, setBusy] = useStateApp(false);
+  const onShare = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await shareResultsImage({ modeLabel, rows, winnerScore, winners });
+    } catch (e) {
+      console.warn("Share results failed:", e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={onShare}
+      disabled={busy}
+      className={cx(
+        "w-full rounded-xl px-5 py-3 transition",
+        cinematic
+          ? "font-mono text-[11px] uppercase tracking-[0.2em] border border-white/20 bg-black/35 text-white/75 hover:border-[var(--hp-gold)]/40 hover:text-white"
+          : "text-sm bg-[#181818] border border-[#282828] text-[#B3B3B3] hover:border-[#1DB954]/40 hover:text-white",
+        busy && "opacity-60 cursor-wait",
+        className
+      )}
+    >
+      {busy ? (cinematic ? "RENDERING…" : "Rendering…") : (cinematic ? "SHARE RESULTS" : "Share results")}
+    </button>
+  );
+}
+
 function BlitzFinalScreen({ state, dispatch, deviceId, onLeave }) {
   const sorted = [...(state.players || [])]
     .map(p => ({ deviceId: p.deviceId, name: p.name, score: state.scores[p.deviceId] || 0 }))
@@ -1999,7 +2285,8 @@ function BlitzFinalScreen({ state, dispatch, deviceId, onLeave }) {
             </div>
           )}
         </div>
-        <div className="px-6">
+        <div className="px-6 space-y-3">
+          <ShareResultsButton modeLabel="Blitz mode" rows={sorted} winnerScore={winnerScore} winners={winners} />
           <HpMutedBtn onClick={onLeave}>LEAVE</HpMutedBtn>
         </div>
       </div>
@@ -3348,6 +3635,14 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
             Waiting for host to start a new round…
           </div>
         )}
+        <ShareResultsButton
+          cinematic={cinematic}
+          modeLabel="Party mode"
+          rows={sorted}
+          winnerScore={winnerScore}
+          winners={winners}
+          className="mt-3"
+        />
       </div>
       </div>
     </>
