@@ -232,6 +232,27 @@ async function fetchJsonWithTimeout(url, timeoutMs = 6000) {
   }
 }
 
+const sleepMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retry a JSON fetch on any failure — network error, timeout (abort), or a
+// non-OK response — backing off between attempts. Defaults to two retries
+// (~400ms then ~900ms) so an intermittent rate-limit or flaky CORS proxy
+// doesn't lose data that's actually there. Re-throws the last error if every
+// attempt fails, so callers can fall through to the next proxy or classify
+// the failure as transient.
+async function fetchJsonWithRetry(url, timeoutMs, delays = [400, 900]) {
+  let lastErr;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      return await fetchJsonWithTimeout(url, timeoutMs);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < delays.length) await sleepMs(delays[attempt]);
+    }
+  }
+  throw lastErr;
+}
+
 function deezerJsonp(url) {
   return new Promise((resolve, reject) => {
     const cb = "__dz_cb_" + Math.random().toString(36).slice(2);
@@ -4183,17 +4204,19 @@ function parseLrc(syncedLyrics) {
 }
 
 async function fetchWithCorsFallback(url, timeoutMs = 6000) {
+  // Each path — direct, then each CORS proxy — gets its own retry-with-backoff,
+  // so a single transient hiccup on any one of them doesn't drop the request.
   try {
-    return await fetchJsonWithTimeout(url, timeoutMs);
+    return await fetchJsonWithRetry(url, timeoutMs);
   } catch (directErr) {
-    const proxyTimeout = Math.min(4500, timeoutMs);
+    const proxyTimeout = Math.min(6000, timeoutMs);
     const proxies = [
       (target) => `https://corsproxy.io/?${encodeURIComponent(target)}`,
       (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
     ];
     const results = await Promise.all(
       proxies.map((toProxy) =>
-        fetchJsonWithTimeout(toProxy(url), proxyTimeout).catch(() => null)
+        fetchJsonWithRetry(toProxy(url), proxyTimeout).catch(() => null)
       )
     );
     for (const data of results) {
@@ -4269,15 +4292,39 @@ async function fetchStageLyricsUncached(title, artist, durationSec, albumName) {
     }).toString()}`
     : null;
 
-  const timeoutMs = 5500;
+  const timeoutMs = 8000;
+
+  // Track whether ANY of the three requests actually reached LRCLIB (resolved
+  // without throwing, even with an empty result). If every request fails after
+  // its retries — network error, timeout, or every proxy down — then a "none"
+  // outcome is transient, not a genuine not-found, and must not be cached.
+  let anyReached = false;
+  const run = async (url, fallback) => {
+    if (!url) return fallback;
+    try {
+      const data = await fetchWithCorsFallback(url, timeoutMs);
+      anyReached = true;
+      return data;
+    } catch {
+      return fallback;
+    }
+  };
+
   const [exactHit, searchList, qList] = await Promise.all([
-    getUrl ? fetchWithCorsFallback(getUrl, timeoutMs).catch(() => null) : Promise.resolve(null),
-    fetchWithCorsFallback(searchUrl, timeoutMs).catch(() => []),
-    fetchWithCorsFallback(qUrl, timeoutMs).catch(() => []),
+    run(getUrl, null),
+    run(searchUrl, []),
+    run(qUrl, []),
   ]);
 
   const hit = pickBestLrcHit(exactHit, searchList, qList, durationSec);
-  return lrclibHitToResult(hit);
+  const result = lrclibHitToResult(hit);
+
+  // No lyrics found AND nothing reached LRCLIB → flag as transient so the
+  // caller returns not-found for this call but leaves the cache untouched.
+  if (result.status === "none" && !anyReached) {
+    result.transient = true;
+  }
+  return result;
 }
 
 async function fetchStageLyrics(title, artist, durationSec, albumName) {
@@ -4287,12 +4334,21 @@ async function fetchStageLyrics(title, artist, durationSec, albumName) {
 
   const promise = fetchStageLyricsUncached(title, artist, durationSec, albumName)
     .then((result) => {
-      stageLyricsCache.set(key, result);
       stageLyricsInflight.delete(key);
+      // A transient all-requests-failed "none" is returned for this call but
+      // deliberately NOT cached, so a later attempt for the same track can
+      // still pick up its lyrics instead of being stuck on freestyle.
+      if (result && result.transient) {
+        const { transient, ...clean } = result;
+        return clean;
+      }
+      // Genuine outcomes — synced, plain, or a real not-found — are cached.
+      stageLyricsCache.set(key, result);
       return result;
     })
     .catch(() => {
       stageLyricsInflight.delete(key);
+      // Unexpected throw: treat as transient and leave the cache untouched.
       return { status: "none", lyrics: [], plain: "" };
     });
 
