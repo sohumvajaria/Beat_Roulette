@@ -1176,14 +1176,14 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <span style={{ color: "var(--hp-gold)" }}>ROULETTE</span>
           </h1>
           <div className="fade-up d1 mt-3 font-mono landing-tagline uppercase tracking-[0.32em] text-white/55">
-            <span style={{ color: "var(--hp-magenta)" }}>★</span> Spin the wheel · Name that tune · Win the night <span style={{ color: "var(--hp-magenta)" }}>★</span>
+            <span style={{ color: "var(--hp-magenta)" }}>★</span> The music party game <span style={{ color: "var(--hp-magenta)" }}>★</span>
           </div>
 
           <div className="landing-cta-group mode-cards-grid relative z-10 mt-6">
             <HomeModeCard
               variant="blitz"
               title="BLITZ MODE"
-              description="Spin the wheel · name that tune · quick match up to 5"
+              description="Quick public match, up to 5 players"
               accent="var(--hp-gold)"
               icon={<ModeIconBlitz />}
               onClick={onBlitzMode}
@@ -1192,7 +1192,7 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <HomeModeCard
               variant="party"
               title="PARTY MODE"
-              description="Everyone on their own phone · host or join a room"
+              description="Everyone plays from their own phone"
               accent="#1DB954"
               icon={<ModeIconParty />}
               onClick={onPartyMode}
@@ -1201,7 +1201,7 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <HomeModeCard
               variant="stage"
               title="STAGE MODE"
-              description="Pick a song · sing the preview · get a pitch score"
+              description="Sing a 30 second preview and get scored on pitch"
               accent="var(--stage-accent)"
               icon={<ModeIconStage />}
               onClick={onStageMode}
@@ -1327,7 +1327,7 @@ function StartScreen({ onChoose }) {
             YOUR PHONE, <span style={{ color: "var(--hp-gold)" }}>YOUR TURN</span>
           </HpSectionTitle>
           <HpSectionDesc>
-            Host opens a room and shares the code. Everyone else joins from their own device.
+            Host a room, share the code, and everyone joins from their phone.
           </HpSectionDesc>
           <div className="mt-8 space-y-3">
             <HpPrimaryBtn onClick={() => setView("host")}>HOST A ROOM →</HpPrimaryBtn>
@@ -1347,7 +1347,7 @@ function StartScreen({ onChoose }) {
             OPEN A <span style={{ color: "var(--hp-gold)" }}>ROOM</span>
           </HpSectionTitle>
           <HpSectionDesc>
-            Pick rounds, enter your name, then share the room code with friends on their phones.
+            Set the rounds, add your name, then send the code to your friends.
           </HpSectionDesc>
           <div className="mt-6 space-y-4">
             <RoundsPicker value={roundPick} onChange={setRoundPick} />
@@ -1370,7 +1370,7 @@ function StartScreen({ onChoose }) {
             GOT THE <span style={{ color: "var(--hp-gold)" }}>CODE?</span>
           </HpSectionTitle>
           <HpSectionDesc>
-            Enter the room code from your host and your name to join the party.
+            Drop in the code and your name to join.
           </HpSectionDesc>
           <div className="mt-6 space-y-4">
             <HpPanel className="space-y-3">
@@ -1551,7 +1551,7 @@ function BlitzModeSetupScreen({ onChoose, onBack }) {
           FIND A <span style={{ color: "var(--hp-gold)" }}>MATCH</span>
         </HpSectionTitle>
         <HpSectionDesc>
-          Pick game length, enter your name, then find a public lobby — everyone votes to start once at least two players are in.
+          Pick a length and a name. Once two people are in, everyone votes to start.
         </HpSectionDesc>
 
         <div className="mt-6 space-y-4">
@@ -1776,7 +1776,7 @@ function BlitzRoundScreen({ state, dispatch, isCoordinator, deviceId, onLeave })
               Name that tune
             </div>
             <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 text-center px-4">
-              No title · no artist · no cover
+              Just the audio. You&apos;re on your own.
             </div>
             {audioError && (
               <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 text-center">
@@ -2067,7 +2067,7 @@ async function buildResultsImage({ modeLabel, rows, winnerScore, winners }) {
   setSpacing("0px");
 
   const winnerName = winners.length === 0
-    ? "NOBODY, SOMEHOW"
+    ? "NOBODY WON, SOMEHOW"
     : winners.map(w => w.name.toUpperCase()).join(" & ");
   let nameSize = 96;
   ctx.font = `${nameSize}px 'Bebas Neue', sans-serif`;
@@ -2261,6 +2261,9 @@ function BlitzFinalScreen({ state, dispatch, deviceId, onLeave }) {
             </div>
             <div className="mt-2 font-display leading-[0.9] tracking-[0.02em]" style={{ fontSize: "clamp(36px, 10vw, 52px)", color: "var(--hp-gold)" }}>
               {(winners[0] || sorted[0])?.name || "—"}
+            </div>
+            <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55 tabular">
+              {winnerScore} point{winnerScore === 1 ? "" : "s"} · You Know Ball
             </div>
             {winners.length > 1 && (
               <HpSectionDesc>{winners.map(w => w.name).join(" · ")}</HpSectionDesc>
@@ -2616,7 +2619,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
         </HpSectionTitle>
         <HpSectionDesc>
           {isHost
-            ? "Share the room code. Everyone adds their songs, then start when the pool is full."
+            ? "Share the code. Everyone adds songs, then you start when the pool's full."
             : state.songsPerPlayer
               ? `Add ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"} — the host starts when everyone's ready.`
               : "Add your songs below. The host starts when everyone's ready."}
@@ -3516,10 +3519,10 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
               {winners.length > 1 ? "It's a tie" : "Winner"}
             </div>
             <div className="mt-1 font-display text-[44px] leading-[0.95] tracking-[0.02em]">
-              {winners.length === 0 ? "NOBODY, SOMEHOW" : winners.map(w => w.name.toUpperCase()).join(" & ")}
+              {winners.length === 0 ? "NOBODY WON, SOMEHOW" : winners.map(w => w.name.toUpperCase()).join(" & ")}
             </div>
             <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55 tabular">
-              {winnerScore} point{winnerScore === 1 ? "" : "s"} · taste validated
+              {winnerScore} point{winnerScore === 1 ? "" : "s"} · They Don&apos;t Know You Son
             </div>
           </HpPanel>
         ) : (
@@ -3528,10 +3531,10 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
               {winners.length > 1 ? "It's a tie" : "Winner"}
             </div>
             <div className="mt-1 text-4xl font-semibold tracking-tight leading-tight">
-              {winners.length === 0 ? "Nobody, somehow" : winners.map(w => w.name).join(" & ")}
+              {winners.length === 0 ? "Nobody won, somehow" : winners.map(w => w.name).join(" & ")}
             </div>
             <div className="mt-2 text-sm text-white/65 tabular">
-              {winnerScore} point{winnerScore === 1 ? "" : "s"} · taste validated.
+              {winnerScore} point{winnerScore === 1 ? "" : "s"} · They Don&apos;t Know You Son.
             </div>
           </div>
         )}
@@ -4516,7 +4519,7 @@ function StageSearchScreen({ state, dispatch }) {
         <h2 className="font-display text-[28px] tracking-[0.08em]" style={{ color: STAGE_ACCENT }}>STAGE MODE</h2>
       </div>
       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50 mb-4">
-        Search a track · sing the 30s preview · get scored
+        Search a song, sing the 30 second preview, get a score
       </p>
 
       <input
@@ -4717,7 +4720,7 @@ function StageFreestyleState({ compact }) {
           FREESTYLE
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/55 leading-relaxed">
-          No synced lyrics for this track — sing freely, your pitch &amp; timing are still scored.
+          No synced lyrics for this one. Sing freely, you&apos;re still scored on pitch and timing.
         </span>
       </div>
     );
@@ -4729,7 +4732,7 @@ function StageFreestyleState({ compact }) {
           className="w-1.5 h-1.5 rounded-full"
           style={{ background: STAGE_ACCENT, boxShadow: `0 0 10px ${STAGE_ACCENT}` }}
         />
-        No synced lyrics for this one
+        No lyrics found for this one
       </div>
       <div
         className="font-display leading-none tracking-[0.1em]"
@@ -4748,7 +4751,7 @@ function StageFreestyleState({ compact }) {
         MODE
       </div>
       <p className="mt-5 max-w-xs mx-auto text-white/60 text-sm leading-relaxed">
-        Sing freely — we&apos;re scoring your pitch and timing, no lyrics needed.
+        No lyrics here. Sing whatever, your pitch and timing still count.
       </p>
     </div>
   );
@@ -4864,7 +4867,7 @@ function StageReadyScreen({ state, dispatch, onBack }) {
       </div>
 
       <div className="mt-4 rounded-xl border border-white/10 bg-black/35 px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/50 leading-relaxed">
-        Use headphones if you can — stops the preview from confusing the mic and scoring.
+        Use headphones so the music doesn&apos;t bleed into your score.
       </div>
 
       {track.previewStartSec != null && (
@@ -4925,7 +4928,7 @@ function StageReadyScreen({ state, dispatch, onBack }) {
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/45 mb-2">Mic level (your voice)</div>
             <MicLevelBars level={micLevel} />
             <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/35">
-              Hum or sing — bars should move with you, not background noise
+              Hum or sing. The bars should follow your voice, not the room.
             </p>
           </div>
         )}
