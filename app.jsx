@@ -1069,6 +1069,7 @@ function setWheelTransform(el, angleDeg) {
 }
 
 function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
+  const [howToOpen, setHowToOpen] = useStateApp(false);
   const wheelRef = useRefApp(null);
   const wheelMotionRef = useRefApp({
     angle: 0,
@@ -1201,6 +1202,31 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
               delayClass="btn-in s3"
             />
           </div>
+
+          <div className="relative z-10 mt-4 flex justify-center md:justify-start">
+            <button
+              type="button"
+              onClick={() => setHowToOpen(true)}
+              className="btn-in s3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/40 backdrop-blur-sm px-4 py-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/55 transition hover:border-[var(--hp-gold)] hover:text-[var(--hp-gold)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              How to play
+            </button>
+          </div>
         </div>
 
         {/* Wheel + pin, right on desktop */}
@@ -1256,6 +1282,84 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
 
       {/* Bottom screen-print strip */}
       <div className="hp-home-footer hp-screenprint shrink-0" />
+
+      {howToOpen && <HowToPlayModal onClose={() => setHowToOpen(false)} />}
+    </div>
+  );
+}
+
+// ---------- HowToPlayModal — mode rundown overlay ----------
+const HOW_TO_PLAY_MODES = [
+  {
+    name: "Party Mode",
+    accent: "#1DB954",
+    description:
+      "Everyone joins a room from their own phone and throws songs into the pool. Each round one plays and you guess who picked it. The faster you nail it the more you score, and if your song fools everyone, that pays off too.",
+  },
+  {
+    name: "Blitz Mode",
+    accent: "var(--hp-gold)",
+    description:
+      "A public match for up to 5 people. A chart song plays and you pick its title out of four. Answer correctly before everyone else to score the most.",
+  },
+  {
+    name: "Stage Mode",
+    accent: "#FF2D78",
+    description:
+      "Just you. Pick a song and sing its 30 second preview while the app scores your pitch and timing. If we have the lyrics they show on screen. If not, you freestyle.",
+  },
+];
+
+function HowToPlayModal({ onClose }) {
+  useEffectApp(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fade-enter fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/80 backdrop-blur-md p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="How to play"
+    >
+      <div
+        className="relative my-auto w-full max-w-md rounded-2xl border border-white/12 bg-[#12121a]/95 backdrop-blur-sm p-6 shadow-2xl"
+        style={{ boxShadow: "0 24px 80px -16px rgba(0,0,0,0.85)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-black/40 text-white/55 transition hover:border-[var(--hp-magenta)] hover:text-[var(--hp-magenta)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+          </svg>
+        </button>
+
+        <div className="font-display text-[34px] leading-none tracking-[0.1em] text-white">HOW TO PLAY</div>
+        <div className="mt-1 h-px w-16 bg-[var(--hp-gold)]"></div>
+
+        <div className="mt-6 space-y-6">
+          {HOW_TO_PLAY_MODES.map((m) => (
+            <div key={m.name}>
+              <div
+                className="font-display text-[24px] tracking-[0.1em]"
+                style={{ color: m.accent }}
+              >
+                {m.name}
+              </div>
+              <p className="mt-1.5 text-sm leading-relaxed text-white/65">{m.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
