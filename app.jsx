@@ -1207,7 +1207,8 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <button
               type="button"
               onClick={() => setHowToOpen(true)}
-              className="btn-in s3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/40 backdrop-blur-sm px-4 py-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/55 transition hover:border-[var(--hp-gold)] hover:text-[var(--hp-gold)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
+              className="btn-in s3 inline-flex items-center gap-2 rounded-full border border-[var(--hp-gold)]/60 bg-[var(--hp-gold)]/10 backdrop-blur-sm px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--hp-gold)] transition hover:border-[var(--hp-gold)] hover:bg-[var(--hp-gold)]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
+              style={{ boxShadow: "0 6px 24px -8px rgba(245, 197, 24, 0.45)" }}
             >
               <svg
                 width="14"
