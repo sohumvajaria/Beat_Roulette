@@ -1173,14 +1173,14 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <span style={{ color: "var(--hp-gold)" }}>ROULETTE</span>
           </h1>
           <div className="fade-up d1 landing-tagline-block ui-body">
-            <span style={{ color: "var(--hp-magenta)" }}>★</span> Name the tune and win the night. <span style={{ color: "var(--hp-magenta)" }}>★</span>
+            <span style={{ color: "var(--hp-magenta)" }}>★</span> The music party game <span style={{ color: "var(--hp-magenta)" }}>★</span>
           </div>
 
           <div className="landing-cta-group mode-cards-grid relative z-10">
             <HomeModeCard
               variant="blitz"
               title="BLITZ MODE"
-              description="Spin the wheel, name the tune. Quick matches, up to 5 rounds."
+              description="Quick public match, up to 5 players"
               icon={<ModeIconBlitz />}
               onClick={onBlitzMode}
               delayClass="btn-in s1"
@@ -1188,7 +1188,7 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <HomeModeCard
               variant="party"
               title="PARTY MODE"
-              description="Everyone plays on their own phone. Host a room or join one."
+              description="Everyone plays from their own phone"
               icon={<ModeIconParty />}
               onClick={onPartyMode}
               delayClass="btn-in s2"
@@ -1196,7 +1196,7 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <HomeModeCard
               variant="stage"
               title="STAGE MODE"
-              description="Pick a song, sing the preview, get a pitch score."
+              description="Sing a 30 second preview and get scored on pitch"
               icon={<ModeIconStage />}
               onClick={onStageMode}
               delayClass="btn-in s3"
@@ -2177,7 +2177,8 @@ async function buildResultsImage({ modeLabel, rows, winnerScore, winners }) {
 
   ctx.font = "500 27px Inter, sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.fillText(`${winnerScore} POINT${winnerScore === 1 ? "" : "S"} · TASTE VALIDATED`, 540, panelY + 214);
+  const winnerTagline = /party/i.test(modeLabel || "") ? "THEY DON'T KNOW YOU SON" : "YOU KNOW BALL";
+  ctx.fillText(`${winnerScore} POINT${winnerScore === 1 ? "" : "S"} · ${winnerTagline}`, 540, panelY + 214);
 
   // Standings list. Row height adapts to player count; very large lobbies
   // overflow into a "+N more" line instead of shrinking below readable.
