@@ -1,4 +1,4 @@
-// Beat Roulette — multiplayer via PartyKit (authoritative server).
+// Beat Roulette, multiplayer via PartyKit (authoritative server).
 // Frontend stays on GitHub Pages; deploy the PartyKit server separately:
 //   npx partykit deploy
 // Then paste your deployed host below.

@@ -1,4 +1,4 @@
-// Beat Roulette — Spotify Authorization Code + PKCE (no backend)
+// Beat Roulette, Spotify Authorization Code + PKCE (no backend)
 // Public API integration. Replace the client ID below with your own.
 
 // TODO: set this to your Spotify Developer Dashboard client ID

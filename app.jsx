@@ -1,4 +1,4 @@
-// Beat Roulette — UI
+// Beat Roulette, UI
 
 const { useState: useStateApp, useEffect: useEffectApp, useRef: useRefApp, useMemo: useMemoApp, useCallback: useCallbackApp, useReducer: useReducerApp } = React;
 
@@ -16,7 +16,7 @@ const shuffle = (arr) => {
 // ---------- Homepage: Roulette Wheel SVG ----------
 function WheelSVG() {
   const SEGMENTS = 12;
-  // gold, magenta, neon green, paper-white — cycled
+  // gold, magenta, neon green, paper-white, cycled
   const palette = ["#F5C518", "#FF2D95", "#1DB954", "#F4ECD3"];
   // Note glyphs alternate
   const notes = ["\u266A", "\u266B", "\u266C", "\u2669"];
@@ -75,7 +75,7 @@ function WheelSVG() {
               <text
                 x="0" y="6"
                 textAnchor="middle"
-                fontFamily="'Bebas Neue', sans-serif"
+                fontFamily="'Bricolage Grotesque', sans-serif"
                 fontSize="34"
                 fill={s.textColor}
                 style={{ paintOrder: "stroke", stroke: s.fill === "#F4ECD3" ? "rgba(0,0,0,0.08)" : "rgba(0,0,0,0.2)", strokeWidth: 0.5 }}
@@ -91,9 +91,10 @@ function WheelSVG() {
       <text
         x={cx0} y={cy0 + 9}
         textAnchor="middle"
-        fontFamily="'Bebas Neue', sans-serif"
+        fontFamily="'Bricolage Grotesque', sans-serif"
         fontSize="32"
         fill="#08080C"
+        fontWeight="800"
         letterSpacing="2"
       >BR</text>
 
@@ -115,7 +116,7 @@ function WheelPin() {
           <stop offset="100%" stopColor="#8E6904" />
         </linearGradient>
       </defs>
-      {/* Pin body — triangle pointing down */}
+      {/* Pin body, triangle pointing down */}
       <path d="M30 70 L8 18 Q30 6 52 18 Z" fill="url(#pinGrad)" stroke="#08080C" strokeWidth="2.5" strokeLinejoin="round" />
       <path d="M30 70 L20 32" stroke="rgba(0,0,0,0.25)" strokeWidth="3" strokeLinecap="round" />
       <circle cx="30" cy="14" r="6" fill="#F5C518" stroke="#08080C" strokeWidth="2.5" />
@@ -218,7 +219,7 @@ const FAMOUS_ARTISTS = [
 // ---------- Deezer (JSONP first, then CORS proxies) ----------
 const DEEZER_API = "https://api.deezer.com";
 const DEEZER_SEARCH_RETRY_MSG =
-  "Deezer search unavailable — check your connection and try again.";
+  "Deezer search unavailable, check your connection and try again.";
 
 async function fetchJsonWithTimeout(url, timeoutMs = 6000) {
   const controller = new AbortController();
@@ -234,8 +235,8 @@ async function fetchJsonWithTimeout(url, timeoutMs = 6000) {
 
 const sleepMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Retry a JSON fetch on any failure — network error, timeout (abort), or a
-// non-OK response — backing off between attempts. Defaults to two retries
+// Retry a JSON fetch on any failure, network error, timeout (abort), or a
+// non-OK response, backing off between attempts. Defaults to two retries
 // (~400ms then ~900ms) so an intermittent rate-limit or flaky CORS proxy
 // doesn't lose data that's actually there. Re-throws the last error if every
 // attempt fails, so callers can fall through to the next proxy or classify
@@ -455,16 +456,16 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
   };
 
   const inputClass = isHome
-    ? "w-full rounded-lg bg-black/45 border border-white/15 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-[var(--hp-gold)] focus:bg-black/60 transition"
-    : "w-full rounded-lg bg-[#282828] border border-transparent px-3 py-2.5 text-sm outline-none placeholder:text-[#535353] focus:border-[#1DB954] focus:bg-[#3a3a3a] transition";
+    ? "w-full rounded-lg bg-black/45 border border-[var(--border-neutral)] px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-[var(--hp-gold)] focus:bg-black/60 transition"
+    : "w-full rounded-lg bg-[#282828] border border-[#3a3a3a] px-3 py-2.5 text-sm outline-none placeholder:text-[#535353] focus:border-[#1DB954] focus:bg-[#3a3a3a] transition";
 
   const panelClass = isHome
-    ? "mt-2 rounded-xl border border-white/20 bg-[#0a0a10] shadow-[0_12px_40px_rgba(0,0,0,0.75)] overflow-hidden"
-    : "mt-2 rounded-xl border border-[#3a3a3a] bg-[#121212] shadow-[0_12px_40px_rgba(0,0,0,0.65)] overflow-hidden";
+    ? "mt-2 rounded-xl border border-[var(--border-neutral)] bg-[#0a0a10] overflow-hidden"
+    : "mt-2 rounded-xl border border-[#3a3a3a] bg-[#121212] overflow-hidden";
 
   const panelHeaderClass = isHome
-    ? "px-3 py-2 border-b border-white/12 bg-[#12121a] font-mono text-[10px] uppercase tracking-[0.2em] text-white/45"
-    : "px-3 py-2 border-b border-[#282828] bg-[#181818] text-[11px] uppercase tracking-[0.16em] text-white/45";
+    ? "px-3 py-2 border-b border-[var(--border-neutral)] bg-[#12121a] ui-label"
+    : "px-3 py-2 border-b border-[var(--border-neutral)] bg-[#181818] ui-label";
 
   const panelListClass = isHome ? "bg-[#0a0a10]" : "bg-[#121212]";
   const panelRowBaseClass = isHome ? "bg-[#0a0a10]" : "bg-[#121212]";
@@ -485,7 +486,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
     return (
       <div ref={wrapRef}>
         <label className="block">
-          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/55 mb-1.5">Search song</div>
+          <div className="ui-label mb-1.5">Search song</div>
           <div className="relative">
             <input
               ref={inputRef}
@@ -522,8 +523,8 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
             </div>
             <div className="song-suggest-list">
               {!searching && results.length === 0 && (
-                <div className="px-3 py-4 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-white/45">
-                  No matches — try another spelling
+                <div className="px-3 py-4 text-center ui-body">
+                  No matches, try another spelling
                 </div>
               )}
               {results.map((track, i) => {
@@ -539,16 +540,16 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
                     className={cx("song-suggest-row", active && "is-active")}
                   >
                     {track.cover ? (
-                      <img src={track.cover} alt="" className="w-10 h-10 rounded-md object-cover shrink-0 border border-white/10" />
+                      <img src={track.cover} alt="" className="w-10 h-10 rounded-md object-cover shrink-0 border border-[var(--border-neutral)]" />
                     ) : (
-                      <div className="w-10 h-10 rounded-md shrink-0 border border-white/10 bg-[#282828]" />
+                      <div className="w-10 h-10 rounded-md shrink-0 border border-[var(--border-neutral)] bg-[#282828]" />
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{track.title}</div>
                       <div className="text-[11px] truncate text-white/55">{track.artist}</div>
                     </div>
                     {!track.preview && (
-                      <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-[#2a2a36] text-white/45">
+                      <span className="shrink-0 ui-label text-[10px] px-1.5 py-0.5 rounded bg-[#2a2a36]">
                         no preview
                       </span>
                     )}
@@ -560,14 +561,14 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
         )}
 
         {!showDropdown && (
-          <div className="mt-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
+          <div className="mt-2 flex items-center gap-2 ui-body text-[12px]">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <span>Pick a match — cover, artist &amp; preview load automatically</span>
+            <span>Pick a match, cover, artist &amp; preview load automatically</span>
           </div>
         )}
 
         {error && (
-          <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]">{error}</div>
+          <div className="mt-2 ui-body text-[var(--hp-magenta)]">{error}</div>
         )}
       </div>
     );
@@ -576,7 +577,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
   return (
     <div ref={wrapRef} className="relative isolate">
       <label className="block">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45 mb-1.5">Search song</div>
+        <div className="ui-label mb-1.5">Search song</div>
         <div className="relative">
           <input
             ref={inputRef}
@@ -614,7 +615,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
           <div className={cx("max-h-[min(260px,40vh)] overflow-y-auto overscroll-contain", panelListClass)}>
             {!searching && results.length === 0 && (
               <div className="px-3 py-4 text-sm text-center text-white/45">
-                No matches — try another spelling
+                No matches, try another spelling
               </div>
             )}
             {results.map((track, i) => {
@@ -634,7 +635,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
                   )}
                 >
                   {track.cover ? (
-                    <img src={track.cover} alt="" className="w-10 h-10 rounded-md object-cover shrink-0 border border-white/10" />
+                    <img src={track.cover} alt="" className="w-10 h-10 rounded-md object-cover shrink-0 border border-[var(--border-neutral)]" />
                   ) : (
                     <div className="w-10 h-10 rounded-md shrink-0 border bg-[#282828] border-[#3a3a3a]" />
                   )}
@@ -643,7 +644,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
                     <div className="text-[11px] truncate text-white/55">{track.artist}</div>
                   </div>
                   {!track.preview && (
-                    <span className="shrink-0 text-[9px] uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-[#282828] text-[#535353]">
+                    <span className="shrink-0 ui-label text-[10px] px-1.5 py-0.5 rounded bg-[#282828] text-[#535353]">
                       no preview
                     </span>
                   )}
@@ -657,7 +658,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
       {!showDropdown && (
         <div className="mt-2 flex items-center gap-2 text-[11px] text-white/40">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <span>Pick a match — cover, artist &amp; preview load automatically</span>
+          <span>Pick a match, cover, artist &amp; preview load automatically</span>
         </div>
       )}
 
@@ -665,7 +666,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
         <div className={cx(
           "mt-2",
           isHome
-            ? "font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--hp-magenta)]"
+            ? "ui-body text-[var(--hp-magenta)]"
             : "text-[12px] text-rose-400"
         )}>{error}</div>
       )}
@@ -677,7 +678,7 @@ function SongSearchPicker({ variant, onAdd, disabled, error, onClearError, autoF
 function Avatar({ name, size = 36, dim = false }) {
   return (
     <div
-      className="rounded-full grid place-items-center font-bold text-white shrink-0"
+      className="rounded-full grid place-items-center font-semibold text-white shrink-0"
       style={{
         width: size, height: size,
         background: colorFor(name),
@@ -715,7 +716,7 @@ function TopBar({ subtitle, right, onBack, backLabel }) {
             <div className="text-[15px] font-semibold tracking-tight truncate">Beat Roulette</div>
           </div>
           {subtitle && (
-            <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/40 truncate">{subtitle}</div>
+            <div className="mt-1 ui-body truncate">{subtitle}</div>
           )}
         </div>
       </div>
@@ -727,7 +728,7 @@ function TopBar({ subtitle, right, onBack, backLabel }) {
 function Field({ label, value, onChange, placeholder, mono, maxLength, autoFocus }) {
   return (
     <label className="block">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-white/45 mb-1">{label}</div>
+      <div className="ui-label mb-1">{label}</div>
       <input
         value={value}
         autoFocus={autoFocus}
@@ -735,7 +736,7 @@ function Field({ label, value, onChange, placeholder, mono, maxLength, autoFocus
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cx(
-          "w-full rounded-lg bg-[#282828] border border-transparent px-3 py-2.5 text-sm outline-none",
+          "w-full rounded-lg bg-[#282828] border border-[#3a3a3a] px-3 py-2.5 text-sm outline-none",
           "placeholder:text-[#535353] focus:border-[#1DB954] focus:bg-[#3a3a3a] transition",
           mono && "font-mono text-[14px] tracking-[0.2em] uppercase"
         )}
@@ -758,7 +759,7 @@ function ArtistPhotoBackdrop() {
           <img src={photo.url} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" style={{ opacity: 0.78 }} />
           <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(18,18,18,0.45) 0%, rgba(18,18,18,0.65) 30%, rgba(18,18,18,0.92) 65%, var(--bg) 100%)" }} />
           <div className="absolute inset-0" style={{ background: "radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.04), transparent 60%)" }} />
-          <div className="absolute bottom-2 left-0 right-0 text-center text-[9px] font-mono uppercase tracking-[0.3em] text-white/25">ft. {photo.name}</div>
+          <div className="absolute bottom-2 left-0 right-0 text-center ui-body text-[11px] opacity-50">ft. {photo.name}</div>
         </>
       )}
       {!photo && (
@@ -771,9 +772,9 @@ function ArtistPhotoBackdrop() {
 // ---------- Home-style stage (local / cinematic flows) ----------
 function HomeStageShell({ children }) {
   return (
-    <div className="hp-stage relative min-h-[100dvh] overflow-hidden fade-enter">
+    <div className="hp-stage relative h-full max-h-[100dvh] overflow-hidden fade-enter flex flex-col">
       <HpStageBackdrop topStrip bottomStrip />
-      <div className="hp-stage-inner relative z-10 flex flex-col min-h-[100dvh] pb-5 overflow-y-auto overflow-x-hidden">{children}</div>
+      <div className="hp-stage-inner relative z-10 flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden">{children}</div>
     </div>
   );
 }
@@ -781,13 +782,13 @@ function HomeStageShell({ children }) {
 function HomeHeader({ subtitle, onBack, backLabel, right }) {
   return (
     <>
-      <div className="hp-header-bar pt-6 px-6 md:px-0 flex items-center justify-between gap-3">
+      <div className="hp-header-bar pt-6 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           {onBack && (
             <button
               onClick={onBack}
               aria-label={backLabel || "Back"}
-              className="shrink-0 w-9 h-9 -ml-0.5 grid place-items-center rounded-full border border-white/20 bg-black/40 hover:bg-black/60 hover:border-[var(--hp-gold)]/50 active:scale-95 transition"
+              className="shrink-0 w-9 h-9 -ml-0.5 grid place-items-center rounded-full border border-[var(--border-neutral)] bg-black/40 hover:bg-black/60 hover:border-[var(--hp-gold)] active:scale-95 transition"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -801,7 +802,7 @@ function HomeHeader({ subtitle, onBack, backLabel, right }) {
         {right}
       </div>
       {subtitle && (
-        <div className="hp-header-bar px-6 md:px-0 mt-1 font-mono landing-tagline uppercase tracking-[0.24em] text-white/40">{subtitle}</div>
+        <div className="hp-header-bar mt-1 ui-body">{subtitle}</div>
       )}
     </>
   );
@@ -810,7 +811,7 @@ function HomeHeader({ subtitle, onBack, backLabel, right }) {
 function HpPanel({ children, className, center }) {
   return (
     <div className={cx(
-      "rounded-2xl border border-white/12 bg-black/40 backdrop-blur-sm p-4 relative",
+      "theme-panel bg-black/40 backdrop-blur-sm p-4 relative",
       center && "text-center",
       className
     )}>
@@ -822,7 +823,7 @@ function HpPanel({ children, className, center }) {
 function HpField({ label, value, onChange, placeholder, mono, maxLength, autoFocus }) {
   return (
     <label className="block">
-      <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45 mb-1.5">{label}</div>
+      <div className="ui-label mb-1.5">{label}</div>
       <input
         value={value}
         autoFocus={autoFocus}
@@ -830,7 +831,7 @@ function HpField({ label, value, onChange, placeholder, mono, maxLength, autoFoc
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cx(
-          "w-full rounded-lg bg-black/45 border border-white/15 px-3 py-2.5 text-sm text-white outline-none",
+          "w-full rounded-lg bg-black/45 border border-[var(--border-neutral)] px-3 py-2.5 text-sm text-white outline-none",
           "placeholder:text-white/30 focus:border-[var(--hp-gold)] focus:bg-black/60 transition",
           mono && "font-mono text-[14px] tracking-[0.2em] uppercase"
         )}
@@ -845,9 +846,9 @@ function HpPrimaryBtn({ children, onClick, disabled, className }) {
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "w-full rounded-xl px-5 py-3.5 font-display tracking-[0.14em] text-[20px] transition",
+        "w-full rounded-xl px-5 py-3.5 font-semibold tracking-wide text-base transition",
         disabled
-          ? "bg-white/10 text-white/35 cursor-not-allowed border border-white/10"
+          ? "bg-white/10 text-white/35 cursor-not-allowed border border-[var(--border-neutral)]"
           : "btn-spotify",
         className
       )}
@@ -863,9 +864,9 @@ function HpGoldBtn({ children, onClick, disabled, className }) {
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "w-full rounded-xl px-5 py-3.5 font-display tracking-[0.14em] text-[20px] transition",
+        "w-full rounded-xl px-5 py-3.5 font-semibold tracking-wide text-base transition",
         disabled
-          ? "border border-white/10 text-white/35 cursor-not-allowed"
+          ? "border border-[var(--border-neutral)] text-white/35 cursor-not-allowed"
           : "btn-gold",
         className
       )}
@@ -881,10 +882,10 @@ function HpMutedBtn({ children, onClick, disabled, className }) {
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "w-full rounded-xl px-5 py-3 font-mono text-[11px] uppercase tracking-[0.2em] border transition",
+        "w-full rounded-xl px-5 py-3 text-sm font-medium border transition",
         disabled
-          ? "border-white/8 bg-black/20 text-white/30 cursor-not-allowed"
-          : "border-white/20 bg-black/35 text-white/75 hover:border-[var(--hp-gold)]/40 hover:text-white",
+          ? "border-[var(--border-neutral)] bg-black/20 text-white/30 cursor-not-allowed"
+          : "border-[var(--border-neutral)] bg-black/35 text-[var(--text-body)] hover:border-[var(--hp-gold)] hover:text-white",
         className
       )}
     >
@@ -906,7 +907,7 @@ function HpSectionTitle({ children }) {
 
 function HpSectionDesc({ children }) {
   return (
-    <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.22em] text-white/55 leading-relaxed">
+    <p className="ui-body mt-2">
       {children}
     </p>
   );
@@ -914,8 +915,8 @@ function HpSectionDesc({ children }) {
 
 function RoundsPicker({ value, onChange }) {
   return (
-    <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Songs per player</div>
+    <div className="theme-panel bg-[#16161e] p-4">
+      <div className="ui-label mb-3">Songs per player</div>
       <div className="flex flex-wrap gap-2 justify-center">
         {[1, 2, 3, 4, 5].map(n => (
           <button
@@ -923,16 +924,16 @@ function RoundsPicker({ value, onChange }) {
             type="button"
             onClick={() => onChange(n)}
             className={cx(
-              "min-w-[52px] h-[52px] rounded-xl font-display text-[26px] tabular border transition",
+              "min-w-[52px] h-[52px] rounded-xl text-[26px] tabular font-semibold border transition",
               value === n
                 ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
-                : "bg-[#22222c] text-white/80 border-white/15 hover:bg-[var(--hp-gold)] hover:text-[#08080C] hover:border-[var(--hp-gold)]"
+                : "bg-[#22222c] text-white/80 border-[var(--border-neutral)] hover:bg-[var(--hp-gold)] hover:text-[#08080C] hover:border-[var(--hp-gold)]"
             )}
           >{n}</button>
         ))}
       </div>
-      <div className="mt-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
-        {value} round{value === 1 ? "" : "s"} · each player adds {value} song{value === 1 ? "" : "s"}
+      <div className="mt-4 text-center ui-body">
+        Each player adds {value} song{value === 1 ? "" : "s"} across {value} round{value === 1 ? "" : "s"}.
       </div>
     </div>
   );
@@ -940,10 +941,10 @@ function RoundsPicker({ value, onChange }) {
 
 function PlayerCountSlider({ value, onChange }) {
   return (
-    <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">How many players?</div>
+    <div className="theme-panel bg-[#16161e] p-4">
+      <div className="ui-label mb-3">How many players?</div>
       <div className="flex items-center gap-4">
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35 w-4 text-right">3</span>
+        <span className="ui-label w-4 text-right opacity-60">3</span>
         <input
           type="range"
           min={3}
@@ -954,11 +955,11 @@ function PlayerCountSlider({ value, onChange }) {
           className="player-count-slider flex-1"
           aria-label="Number of players"
         />
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35 w-6">10</span>
+        <span className="ui-label w-6 opacity-60">10</span>
       </div>
       <div className="mt-4 text-center">
         <span className="font-display text-[44px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>{value}</span>
-        <span className="ml-2 font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+        <span className="ml-2 ui-body">
           player{value === 1 ? "" : "s"}
         </span>
       </div>
@@ -998,39 +999,34 @@ function ModeIconStage() {
   );
 }
 
-function HomeModeCard({ title, description, accent, icon, onClick, delayClass, variant }) {
+function HomeModeCard({ title, description, icon, onClick, delayClass, variant }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cx(
-        "home-mode-card btn-in w-full rounded-2xl border p-4 text-left bg-black/45 backdrop-blur-sm",
+        "home-mode-card btn-in w-full rounded-2xl text-left bg-black/45 backdrop-blur-sm",
         variant === "blitz" && "home-mode-card--blitz",
         variant === "party" && "home-mode-card--party",
         variant === "stage" && "home-mode-card--stage",
         delayClass
       )}
-      style={{
-        borderColor: "rgba(var(--mode-accent-rgb), 0.33)",
-        boxShadow: "0 8px 32px -10px rgba(var(--mode-accent-rgb), 0.22)",
-        color: accent,
-      }}
     >
       <div className="home-mode-card__inner">
         <div
-          className="home-mode-card__icon w-12 h-12 rounded-xl grid place-items-center shrink-0"
+          className="home-mode-card__icon rounded-xl grid place-items-center shrink-0"
           style={{ background: "rgba(var(--mode-accent-rgb), 0.14)", color: "var(--mode-accent)" }}
         >
           {icon}
         </div>
         <div className="min-w-0 flex-1">
           <div
-            className="home-mode-card__title font-display text-[22px] tracking-[0.12em]"
+            className="home-mode-card__title font-display tracking-[0.12em]"
             style={{ color: "var(--mode-accent)" }}
           >
             {title}
           </div>
-          <div className="home-mode-card__desc mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50 leading-relaxed">
+          <div className="home-mode-card__desc mt-1">
             {description}
           </div>
         </div>
@@ -1051,7 +1047,7 @@ function HomeModeCard({ title, description, accent, icon, onClick, delayClass, v
   );
 }
 
-// ---------- HomeScreen — cinematic landing ----------
+// ---------- HomeScreen, cinematic landing ----------
 function getWheelRotationDeg(el) {
   const tr = window.getComputedStyle(el).transform;
   if (!tr || tr === "none") return 0;
@@ -1165,26 +1161,25 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
   };
 
   return (
-    <div className="hp-stage relative min-h-[100dvh] overflow-hidden flex flex-col">
+    <div className="home-viewport hp-stage relative h-full w-full max-w-full overflow-hidden flex flex-col">
       <HpStageBackdrop topStrip />
 
-      <div className="landing-layout relative z-10 flex-1 pt-6">
-        {/* Copy — left on desktop, below wheel on mobile */}
-        <div className="landing-copy px-6 md:px-0 mt-3 md:mt-0 text-center md:text-left">
+      <div className="landing-layout relative z-10 flex-1 min-h-0">
+        {/* Copy, left on desktop, below wheel on mobile */}
+        <div className="landing-copy px-6 md:px-0 text-center md:text-left">
           <h1 className="fade-up landing-title font-display text-white tracking-[0.01em]">
             BEAT<br/>
             <span style={{ color: "var(--hp-gold)" }}>ROULETTE</span>
           </h1>
-          <div className="fade-up d1 mt-3 font-mono landing-tagline uppercase tracking-[0.32em] text-white/55">
-            <span style={{ color: "var(--hp-magenta)" }}>★</span> The music party game <span style={{ color: "var(--hp-magenta)" }}>★</span>
+          <div className="fade-up d1 landing-tagline-block ui-body">
+            <span style={{ color: "var(--hp-magenta)" }}>★</span> Name the tune and win the night. <span style={{ color: "var(--hp-magenta)" }}>★</span>
           </div>
 
-          <div className="landing-cta-group mode-cards-grid relative z-10 mt-6">
+          <div className="landing-cta-group mode-cards-grid relative z-10">
             <HomeModeCard
               variant="blitz"
               title="BLITZ MODE"
-              description="Quick public match, up to 5 players"
-              accent="var(--hp-gold)"
+              description="Spin the wheel, name the tune. Quick matches, up to 5 rounds."
               icon={<ModeIconBlitz />}
               onClick={onBlitzMode}
               delayClass="btn-in s1"
@@ -1192,8 +1187,7 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <HomeModeCard
               variant="party"
               title="PARTY MODE"
-              description="Everyone plays from their own phone"
-              accent="#1DB954"
+              description="Everyone plays on their own phone. Host a room or join one."
               icon={<ModeIconParty />}
               onClick={onPartyMode}
               delayClass="btn-in s2"
@@ -1201,8 +1195,7 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
             <HomeModeCard
               variant="stage"
               title="STAGE MODE"
-              description="Sing a 30 second preview and get scored on pitch"
-              accent="var(--stage-accent)"
+              description="Pick a song, sing the preview, get a pitch score."
               icon={<ModeIconStage />}
               onClick={onStageMode}
               delayClass="btn-in s3"
@@ -1210,17 +1203,17 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
           </div>
         </div>
 
-        {/* Wheel + pin — right on desktop */}
-        <div className="landing-wheel relative z-10 mt-4 md:mt-0">
+        {/* Wheel + pin, right on desktop */}
+        <div className="landing-wheel relative z-10">
           <button
             type="button"
             onClick={handlePressSpin}
             aria-label="Press spin"
             className="absolute right-0 md:-right-2 top-0 z-20 hidden sm:grid star-burst cursor-pointer transition-transform hover:scale-105 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hp-gold)]"
           >
-            <span className="text-white pointer-events-none">
-              <span className="block text-[10px] tracking-[0.12em]">PRESS</span>
-              <span className="block text-[22px]">SPIN</span>
+            <span className="text-white pointer-events-none leading-none">
+              <span className="block text-[11px] tracking-[0.08em]">PRESS</span>
+              <span className="block text-[24px] mt-0.5">SPIN</span>
             </span>
           </button>
 
@@ -1244,8 +1237,8 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
       </div>
 
       {/* Marquee strip at bottom */}
-      <div className="hp-marquee-full relative z-10 mt-4 border-y border-white/10 bg-black/30 overflow-hidden">
-        <div className="marquee-track flex whitespace-nowrap py-2 font-display tracking-[0.2em] text-[18px]">
+      <div className="hp-marquee-full relative z-10 shrink-0 border-y border-[var(--border-neutral)] bg-black/30 overflow-hidden">
+        <div className="marquee-track flex whitespace-nowrap py-2 font-display tracking-[0.2em] text-[clamp(14px,2.5dvh,18px)]">
           {Array.from({ length: 2 }).map((_, k) => (
             <div key={k} className="flex items-center shrink-0" style={{ width: "max-content" }}>
               {["NAME THAT TUNE", "SPIN", "GUESS", "SCORE", "NAME THAT TUNE", "SPIN", "REPEAT"].map((w, i) => (
@@ -1262,12 +1255,12 @@ function HomeScreen({ onPartyMode, onBlitzMode, onStageMode }) {
       </div>
 
       {/* Bottom screen-print strip */}
-      <div className="absolute bottom-0 left-0 right-0 h-[14px] hp-screenprint"></div>
+      <div className="hp-home-footer hp-screenprint shrink-0" />
     </div>
   );
 }
 
-// ---------- StartScreen — BLITZ / PARTY / STAGE modes ----------
+// ---------- StartScreen, BLITZ / PARTY / STAGE modes ----------
 function StartScreen({ onChoose }) {
   const [view, setView] = useStateApp("home"); // home | party | host | join | blitz
   const [name, setName] = useStateApp("");
@@ -1321,7 +1314,7 @@ function StartScreen({ onChoose }) {
   if (view === "party") {
     return (
       <HomeStageShell>
-        <HomeHeader subtitle="Multi-device" onBack={() => setView("home")} backLabel="Back" />
+        <HomeHeader onBack={() => setView("home")} backLabel="Back" />
         <div className="stage-content px-6 mt-4 flex-1">
           <HpSectionTitle>
             YOUR PHONE, <span style={{ color: "var(--hp-gold)" }}>YOUR TURN</span>
@@ -1418,14 +1411,14 @@ function ConnectionGate({ status, mode, onReset }) {
       <div className="mx-6 max-w-sm w-full rounded-2xl border border-[#282828] bg-[#181818] p-5 text-center">
         {status.kind === "error" ? (
           <>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-rose-400">Couldn't connect</div>
-            <div className="mt-2 text-base font-medium">{status.message || "Something went wrong."}</div>
+            <div className="ui-label text-rose-400">Couldn't connect</div>
+            <div className="mt-2 ui-body">{status.message || "Something went wrong."}</div>
             <button onClick={onReset} className="mt-5 rounded-xl px-4 py-2.5 text-sm font-semibold bg-white text-black w-full">Back to start</button>
           </>
         ) : (
           <>
             <div className="mx-auto w-10 h-10 rounded-full border-2 border-[#282828] border-t-[#1DB954] animate-spin"></div>
-            <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-white/45">
+            <div className="mt-3 ui-body">
               {mode.kind === "host" ? "Opening room" : mode.kind === "blitz" ? "Finding match" : "Joining room"}
             </div>
             <div className="mt-1 text-base font-medium tabular">{mode.code}</div>
@@ -1487,8 +1480,8 @@ function blitzRoomIdForLength(lengthId) {
 function BlitzLengthPicker({ value, onChange }) {
   const selected = BLITZ_LENGTHS.find(x => x.id === value) || BLITZ_LENGTHS[0];
   return (
-    <div className="rounded-2xl border border-white/14 bg-[#16161e] p-4 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Game length</div>
+    <div className="theme-panel bg-[#16161e] p-4">
+      <div className="ui-label mb-3">Game length</div>
       <div className="grid grid-cols-3 gap-2">
         {BLITZ_LENGTHS.map(opt => (
           <button
@@ -1499,26 +1492,26 @@ function BlitzLengthPicker({ value, onChange }) {
               "group rounded-xl px-2 py-3 text-center border transition",
               value === opt.id
                 ? "bg-[var(--hp-gold)] text-[#08080C] border-[var(--hp-gold)]"
-                : "bg-[#22222c] text-white/80 border-white/15 hover:bg-[var(--hp-gold)] hover:text-[#08080C] hover:border-[var(--hp-gold)]"
+                : "bg-[#22222c] text-white/80 border-[var(--border-neutral)] hover:bg-[var(--hp-gold)] hover:text-[#08080C] hover:border-[var(--hp-gold)]"
             )}
           >
             <div className={cx(
-              "font-display tracking-[0.1em] text-[17px] leading-none",
+              "font-semibold tracking-wide text-[17px] leading-none",
               value === opt.id ? "text-[#08080C]" : "text-white/80 group-hover:text-[#08080C]"
             )}>
               {opt.label.toUpperCase()}
             </div>
             <div className={cx(
-              "mt-1 font-mono text-[10px] uppercase tracking-[0.14em] tabular",
-              value === opt.id ? "text-[#08080C]/70" : "text-white/45 group-hover:text-[#08080C]/65"
+              "mt-1 ui-body tabular text-[12px]",
+              value === opt.id ? "text-[#08080C]/70" : "opacity-80 group-hover:text-[#08080C]/65"
             )}>
-              {opt.rounds} rnd
+              {opt.rounds} RND
             </div>
           </button>
         ))}
       </div>
-      <div className="mt-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
-        {selected.rounds} round{selected.rounds === 1 ? "" : "s"} · chart hits · up to 5 players
+      <div className="mt-4 text-center ui-body">
+        {selected.rounds} round{selected.rounds === 1 ? "" : "s"} of chart hits, up to 5 players.
       </div>
     </div>
   );
@@ -1545,7 +1538,7 @@ function BlitzModeSetupScreen({ onChoose, onBack }) {
 
   return (
     <HomeStageShell>
-      <HomeHeader subtitle="Blitz Mode" onBack={onBack} backLabel="Back" />
+      <HomeHeader onBack={onBack} backLabel="Back" />
       <div className="stage-content px-6 mt-4 flex-1 pb-8">
         <HpSectionTitle>
           FIND A <span style={{ color: "var(--hp-gold)" }}>MATCH</span>
@@ -1591,7 +1584,6 @@ function BlitzLobbyScreen({ state, dispatch, deviceId, onLeave }) {
   return (
     <HomeStageShell>
       <HomeHeader
-        subtitle={`Lobby · ${state.roundCount} round${state.roundCount === 1 ? "" : "s"}`}
         onBack={onLeave}
         backLabel="Leave room"
       />
@@ -1606,15 +1598,15 @@ function BlitzLobbyScreen({ state, dispatch, deviceId, onLeave }) {
         </HpSectionTitle>
         <HpSectionDesc>
           {onlinePlayers.length < 2
-            ? "You're in the room — waiting for at least one more player to join."
+            ? "You're in the room, waiting for at least one more player to join."
             : joinWindowOpen
-              ? `${joinSecondsLeft}s left for others to join · everyone must vote to start`
+              ? `${joinSecondsLeft}s left for others to join. Everyone must vote to start.`
               : "Everyone must vote to start the round."}
         </HpSectionDesc>
 
         <div className="mt-5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">
-            In the room · {onlinePlayers.length}{joinWindowOpen ? ` · join window ${joinSecondsLeft}s` : ""}
+          <div className="ui-label mb-2">
+            In the room ({onlinePlayers.length}{joinWindowOpen ? `, ${joinSecondsLeft}s to join` : ""})
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {players.map(p => {
@@ -1626,7 +1618,7 @@ function BlitzLobbyScreen({ state, dispatch, deviceId, onLeave }) {
                     <Avatar name={p.name} size={42} dim={p.online === false} />
                     {hasVoted && onlinePlayers.length >= 2 && (
                       <div
-                        className="absolute -top-2 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
+                        className="absolute -top-2 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-semibold border border-[#08080C] z-10"
                         style={{ background: "var(--hp-gold)", color: "#08080C" }}
                       >✓</div>
                     )}
@@ -1636,10 +1628,10 @@ function BlitzLobbyScreen({ state, dispatch, deviceId, onLeave }) {
                     style={isMe ? { color: "var(--hp-gold)" } : undefined}
                   >{p.name}</div>
                   <div className={cx(
-                    "text-[10px] font-mono uppercase tracking-[0.12em]",
-                    p.online === false ? "text-white/25" : hasVoted && onlinePlayers.length >= 2 ? "text-[var(--hp-gold)]" : "text-white/45"
+                    "ui-label text-[11px]",
+                    p.online === false ? "opacity-50" : hasVoted && onlinePlayers.length >= 2 ? "text-[var(--hp-gold)]" : ""
                   )}>
-                    {p.online === false ? "out" : hasVoted && onlinePlayers.length >= 2 ? "voted" : "here"}
+                    {p.online === false ? "Out" : hasVoted && onlinePlayers.length >= 2 ? "Voted" : "Here"}
                   </div>
                 </div>
               );
@@ -1651,10 +1643,10 @@ function BlitzLobbyScreen({ state, dispatch, deviceId, onLeave }) {
           {canVote ? (
             <>
               <HpPrimaryBtn onClick={toggleVote}>
-                {myVoted ? "REVOKE VOTE" : `VOTE TO START · ${voteCount}/${onlinePlayers.length}`}
+                {myVoted ? "Revoke vote" : `Vote to start (${voteCount}/${onlinePlayers.length})`}
               </HpPrimaryBtn>
               {voteCount > 0 && voteCount < onlinePlayers.length && (
-                <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
+                <div className="mt-3 text-center ui-body">
                   Waiting for {onlinePlayers.length - voteCount} more vote{onlinePlayers.length - voteCount === 1 ? "" : "s"}…
                 </div>
               )}
@@ -1750,7 +1742,7 @@ function BlitzRoundScreen({ state, dispatch, isCoordinator, deviceId, onLeave })
         backLabel="Leave game"
         right={
           <div className="text-right shrink-0">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Round</div>
+            <div className="ui-label">Round</div>
             <div className="font-display text-[22px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>
               {state.roundIdx + 1}<span className="text-white/35">/{state.roundCount}</span>
             </div>
@@ -1767,20 +1759,20 @@ function BlitzRoundScreen({ state, dispatch, isCoordinator, deviceId, onLeave })
                 <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, #000 0 18%, #282828 18.5% 60%, #181818 60.5% 100%)" }}></div>
                 <div className="relative w-6 h-6 rounded-full bg-[var(--hp-gold)]"></div>
               </div>
-              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-white/15 font-mono text-[11px] tabular text-white/60">
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-[var(--border-neutral)] font-mono text-[11px] tabular text-white/60">
                 0:{String(Math.max(0, secondsLeft)).padStart(2, "0")}
               </div>
             </div>
-            <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
+            <div className="mt-3 ui-label" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
             <div className="mt-1 font-display text-[22px] leading-tight text-center px-4 tracking-[0.02em]">
               Name that tune
             </div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 text-center px-4">
+            <div className="ui-body text-center px-4">
               Just the audio. You&apos;re on your own.
             </div>
             {audioError && (
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 text-center">
-                Preview unavailable — pick your best guess
+              <div className="mt-2 ui-body text-center">
+                Preview unavailable, pick your best guess.
               </div>
             )}
           </div>
@@ -1789,7 +1781,7 @@ function BlitzRoundScreen({ state, dispatch, isCoordinator, deviceId, onLeave })
 
         <div className="mt-5">
           <div className="flex items-baseline justify-between">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
+            <div className="ui-label">
               {myAnswer ? "Locked in" : "Which song is it?"}
             </div>
             <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{lockedCount}/{onlinePlayers.length} locked in</div>
@@ -1798,17 +1790,17 @@ function BlitzRoundScreen({ state, dispatch, isCoordinator, deviceId, onLeave })
           <HpPanel className="mt-4 p-3 min-h-[180px]">
             {myAnswer ? (
               <div className="text-center py-6">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
+                <div className="ui-label mb-2" style={{ color: "var(--hp-gold)" }}>
                   You locked in
                 </div>
-                <div className="font-display text-[20px] tracking-[0.02em] px-4 truncate">
-                  {choices.find(c => c.deezerId === myAnswer.choiceId)?.title || "—"}
+                <div className="font-semibold text-lg tracking-tight px-4 truncate">
+                  {choices.find(c => c.deezerId === myAnswer.choiceId)?.title || "-"}
                 </div>
                 <HpSectionDesc>Waiting for {onlinePlayers.length - lockedCount} more…</HpSectionDesc>
               </div>
             ) : (
               <>
-                <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <div className="px-2 py-1 ui-body opacity-90">
                   Tap the track you think you heard
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -1817,10 +1809,10 @@ function BlitzRoundScreen({ state, dispatch, isCoordinator, deviceId, onLeave })
                       key={t.deezerId}
                       type="button"
                       onClick={() => submit(t.deezerId)}
-                      className="rounded-xl px-3 py-3 text-sm font-medium border text-left transition bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
+                      className="rounded-xl px-3 py-3 text-sm font-medium border-2 text-left transition bg-black/35 border-[var(--border-neutral)] hover:border-[var(--hp-gold)]"
                     >
                       <div className="truncate">{t.title}</div>
-                      <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/45 truncate">{t.artist}</div>
+                      <div className="ui-body text-[12px] opacity-85 truncate">{t.artist}</div>
                     </button>
                   ))}
                 </div>
@@ -1872,7 +1864,7 @@ function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave 
       <div className="stage-content flex-1 pb-6">
         <div className="px-6 mt-2">
           <HpSectionTitle>
-            IT WAS <span style={{ color: "var(--hp-gold)" }}>{correct ? correct.title.toUpperCase() : "—"}</span>
+            IT WAS <span style={{ color: "var(--hp-gold)" }}>{correct ? correct.title.toUpperCase() : "-"}</span>
           </HpSectionTitle>
           {correct && (
             <HpSectionDesc>{correct.artist}</HpSectionDesc>
@@ -1880,12 +1872,12 @@ function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave 
         </div>
 
         <div className="mt-6 px-6">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">This round</div>
+          <div className="ui-label">This round</div>
           <div className="mt-3 space-y-2">
             {sorted.map(row => (
               <div key={row.deviceId} className={cx(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
-                row.correct ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35"
+                row.correct ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-[var(--border-neutral)] bg-black/35"
               )}>
                 <Avatar name={row.name} size={28} />
                 <div className="min-w-0 flex-1">
@@ -1903,7 +1895,7 @@ function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave 
                   className="text-[12px] font-semibold px-2 py-1 rounded-full tabular"
                   style={row.points > 0 ? { color: "var(--hp-gold)", background: "rgba(245,197,24,0.15)" } : { background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.35)" }}
                 >
-                  {row.points > 0 ? `+${row.points}` : "—"}
+                  {row.points > 0 ? `+${row.points}` : "-"}
                 </div>
               </div>
             ))}
@@ -1911,11 +1903,11 @@ function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave 
         </div>
 
         <div className="mt-6 px-6">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">Leaderboard</div>
-          <div className="mt-3 overflow-hidden rounded-2xl border border-white/12 bg-black/40 backdrop-blur-sm">
+          <div className="ui-label">Leaderboard</div>
+          <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--border-neutral)] bg-black/40 backdrop-blur-sm">
             {sorted.map((row, i) => (
               <div key={row.deviceId} className={cx(
-                "flex items-center gap-3 px-4 py-3 border-b border-white/10 last:border-b-0",
+                "flex items-center gap-3 px-4 py-3 border-b border-[var(--border-neutral)] last:border-b-0",
                 row.total === topScore && topScore > 0 && "bg-[var(--hp-gold)]/10"
               )}>
                 <div className="w-5 text-xs font-mono text-white/40 tabular">{i + 1}</div>
@@ -1936,7 +1928,7 @@ function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave 
         </div>
 
         <div className="px-6 pt-6 pb-10">
-          <div className="w-full rounded-xl py-4 text-center border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]">
+          <div className="w-full rounded-xl py-4 text-center border border-[var(--border-neutral)] bg-black/35 ui-body">
             {state.roundIdx + 1 >= state.roundCount ? "Final scores soon…" : "Next round soon…"}
           </div>
         </div>
@@ -1949,7 +1941,7 @@ function BlitzResultsScreen({ state, dispatch, isCoordinator, deviceId, onLeave 
 // Renders the final standings to a 1080x1920 PNG (phone-story sized) in the
 // cinematic style, then shares it via the Web Share API (so it can go straight
 // to a story or chat) or falls back to downloading the file. Pure
-// presentation — never touches game state or scoring.
+// presentation, never touches game state or scoring.
 const SHARE_W = 1080, SHARE_H = 1920;
 
 function shareRoundRect(ctx, x, y, w, h, r) {
@@ -1971,7 +1963,7 @@ function shareFitText(ctx, text, maxWidth) {
   return t + "…";
 }
 
-// Simplified canvas take on WheelSVG — same palette, gold hub, BR mark.
+// Simplified canvas take on WheelSVG, same palette, gold hub, BR mark.
 function drawShareWheel(ctx, cx0, cy0, rOuter) {
   const palette = ["#F5C518", "#FF2D95", "#1DB954", "#F4ECD3"];
   const rInner = rOuter * 0.31;
@@ -2009,7 +2001,7 @@ function drawShareWheel(ctx, cx0, cy0, rOuter) {
 }
 
 async function buildResultsImage({ modeLabel, rows, winnerScore, winners }) {
-  // Make sure the display fonts are actually loaded before drawing — canvas
+  // Make sure the display fonts are actually loaded before drawing, canvas
   // silently falls back to a system font otherwise.
   try {
     await Promise.all([
@@ -2036,7 +2028,7 @@ async function buildResultsImage({ modeLabel, rows, winnerScore, winners }) {
 
   drawShareWheel(ctx, 540, 240, 125);
 
-  // Title: BEAT in white, ROULETTE in gold — same split as the homepage.
+  // Title: BEAT in white, ROULETTE in gold, same split as the homepage.
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
   setSpacing("2px");
@@ -2124,7 +2116,7 @@ async function buildResultsImage({ modeLabel, rows, winnerScore, winners }) {
     ctx.fillStyle = i === 0 ? "#F5C518" : "rgba(255,255,255,0.55)";
     ctx.fillText(String(i + 1), listX + 58, cy + 1);
 
-    // Avatar disc — same hash colors and initials as the in-app Avatar.
+    // Avatar disc, same hash colors and initials as the in-app Avatar.
     const avR = rowH * 0.3;
     const avX = listX + 128;
     ctx.beginPath(); ctx.arc(avX, cy, avR, 0, Math.PI * 2);
@@ -2181,11 +2173,11 @@ async function shareResultsImage(payload) {
   // Web Share with files (mobile): straight to story / chat.
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: "Beat Roulette", text: "Beat Roulette — final standings" });
+      await navigator.share({ files: [file], title: "Beat Roulette", text: "Beat Roulette, final standings" });
       return;
     } catch (e) {
       if (e && e.name === "AbortError") return; // user closed the share sheet
-      // real failure — fall through to download
+      // real failure, fall through to download
     }
   }
 
@@ -2256,30 +2248,30 @@ function BlitzFinalScreen({ state, dispatch, deviceId, onLeave }) {
       <div className="stage-content relative z-10 flex-1 pb-10">
         <div className="mx-6 mt-2">
           <HpPanel className="p-6">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>
+            <div className="ui-label" style={{ color: "var(--hp-magenta)" }}>
               {winners.length > 1 ? "It's a tie" : "Winner"}
             </div>
             <div className="mt-2 font-display leading-[0.9] tracking-[0.02em]" style={{ fontSize: "clamp(36px, 10vw, 52px)", color: "var(--hp-gold)" }}>
-              {(winners[0] || sorted[0])?.name || "—"}
+              {(winners[0] || sorted[0])?.name || "-"}
             </div>
             <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55 tabular">
               {winnerScore} point{winnerScore === 1 ? "" : "s"} · You Know Ball
             </div>
             {winners.length > 1 && (
-              <HpSectionDesc>{winners.map(w => w.name).join(" · ")}</HpSectionDesc>
+              <HpSectionDesc>{winners.map(w => w.name).join(", ")}</HpSectionDesc>
             )}
           </HpPanel>
         </div>
 
         <div className="mt-6 px-6">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">All standings</div>
+          <div className="ui-label">All standings</div>
           <div className="mt-3 space-y-2">
             {sorted.map((row, i) => {
               const isWinner = row.score === winnerScore && winnerScore > 0;
               return (
                 <div key={row.deviceId} className={cx(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
-                  isWinner ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35"
+                  isWinner ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-[var(--border-neutral)] bg-black/35"
                 )}>
                   <div className={cx(
                     "w-7 h-7 rounded-full grid place-items-center text-xs font-semibold tabular",
@@ -2301,10 +2293,10 @@ function BlitzFinalScreen({ state, dispatch, deviceId, onLeave }) {
 
         <div className="px-6 pt-8 pb-4">
           <HpGoldBtn onClick={toggleReplayVote}>
-            {myReplayVoted ? "REVOKE PLAY AGAIN VOTE" : `VOTE PLAY AGAIN · ${replayVoteCount}/${onlinePlayers.length}`}
+            {myReplayVoted ? "Revoke play again vote" : `Vote play again (${replayVoteCount}/${onlinePlayers.length})`}
           </HpGoldBtn>
           {replayVoteCount > 0 && replayVoteCount < onlinePlayers.length && (
-            <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
+                <div className="mt-3 text-center ui-body">
               Everyone must vote to play again
             </div>
           )}
@@ -2326,9 +2318,9 @@ function BlitzModeView({ choice, onReset }) {
   const useBlitz = window.useBlitzSession;
   if (!useBlitz) {
     return (
-      <div className="p-8 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+      <div className="p-8 text-center ui-body">
         Blitz Mode failed to load. Refresh the page.
-        <button type="button" onClick={onReset} className="block mx-auto mt-4 btn-spotify rounded-xl px-5 py-2.5 font-display">BACK</button>
+        <button type="button" onClick={onReset} className="block mx-auto mt-4 btn-spotify rounded-xl px-5 py-2.5 font-semibold">BACK</button>
       </div>
     );
   }
@@ -2363,10 +2355,7 @@ function RoomChip({ code, mode, variant }) {
   };
   return (
     <button type="button" onClick={copy} className="text-right group shrink-0">
-      <div className={cx(
-        "uppercase tracking-[0.18em]",
-        hp ? "font-mono text-[10px] text-white/40" : "text-[10px] text-white/40"
-      )}>Room {mode.kind === "client" ? "· joined" : ""}</div>
+      <div className="ui-label">Room{mode.kind === "client" ? " (joined)" : ""}</div>
       <div
         className={cx(
           "font-mono font-semibold tracking-[0.2em] transition",
@@ -2376,14 +2365,14 @@ function RoomChip({ code, mode, variant }) {
       >
         {code}
       </div>
-      <div className={cx("mt-0.5", hp ? "font-mono text-[10px] uppercase tracking-[0.14em] text-white/35" : "text-[10px] text-white/35")}>
-        {copied ? "link copied!" : "tap to copy link"}
+      <div className="mt-0.5 ui-body text-[12px] opacity-80">
+        {copied ? "Link copied!" : "Tap to copy link"}
       </div>
     </button>
   );
 }
 
-// ---------- SpotifyImporter — pick from top tracks ----------
+// ---------- SpotifyImporter, pick from top tracks ----------
 function SpotifyImporter({ token, dispatch, deviceId, onDisconnect, existingTitles }) {
   const [open, setOpen] = useStateApp(false);
   const [tracks, setTracks] = useStateApp(null);
@@ -2453,8 +2442,8 @@ function SpotifyImporter({ token, dispatch, deviceId, onDisconnect, existingTitl
             <MusicDiscGlyph size={16} />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">Spotify · connected</div>
-            <div className="text-[12px] text-white/55 truncate">Import from your top tracks</div>
+            <div className="ui-label" style={{ color: "#1DB954" }}>Spotify connected</div>
+            <div className="ui-body text-[12px] truncate">Import from your top tracks</div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -2499,7 +2488,7 @@ function SpotifyImporter({ token, dispatch, deviceId, onDisconnect, existingTitl
                       onClick={() => toggle(t.id)}
                       className={cx(
                         "sp-track w-full flex items-center gap-2 rounded-xl px-2 py-1.5 border text-left",
-                        isSel ? "selected" : "border-transparent bg-[#181818] hover:bg-[#202020]",
+                        isSel ? "selected" : "border-[#3a3a3a] bg-[#181818] hover:border-[#1DB954]",
                         isDup && "opacity-50 cursor-not-allowed"
                       )}
                     >
@@ -2551,7 +2540,7 @@ function SpotifyImporter({ token, dispatch, deviceId, onDisconnect, existingTitl
   );
 }
 
-// ---------- LobbyScreen — multi-device room (cinematic) ----------
+// ---------- LobbyScreen, multi-device room (cinematic) ----------
 function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave }) {
   const [err, setErr] = useStateApp("");
   const [songSearchOpen, setSongSearchOpen] = useStateApp(false);
@@ -2601,7 +2590,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
       <HomeHeader
         subtitle={
           state.songsPerPlayer
-            ? `Lobby · ${state.songsPerPlayer} round${state.songsPerPlayer === 1 ? "" : "s"} each`
+            ? `Lobby, ${state.songsPerPlayer} round${state.songsPerPlayer === 1 ? "" : "s"} each`
             : "Lobby"
         }
         onBack={onLeave}
@@ -2621,13 +2610,13 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
           {isHost
             ? "Share the code. Everyone adds songs, then you start when the pool's full."
             : state.songsPerPlayer
-              ? `Add ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"} — the host starts when everyone's ready.`
+              ? `Add ${songsPerPlayer} song${songsPerPlayer === 1 ? "" : "s"}, the host starts when everyone's ready.`
               : "Add your songs below. The host starts when everyone's ready."}
         </HpSectionDesc>
 
         <div className="mt-5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40 mb-2">
-            In the room · {state.players.length}
+          <div className="ui-label mb-2">
+            In the room ({state.players.length})
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {state.players.map(p => {
@@ -2640,7 +2629,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
                     <Avatar name={p.name} size={42} dim={p.online === false} />
                     {isHostP && (
                       <div
-                        className="absolute -top-2 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-bold border border-[#08080C] z-10"
+                        className="absolute -top-2 -right-1 text-[10px] rounded-full w-4 h-4 grid place-items-center font-semibold border border-[#08080C] z-10"
                         style={{ background: "var(--hp-gold)", color: "#08080C" }}
                       >★</div>
                     )}
@@ -2659,26 +2648,26 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
         </div>
 
         {mySongs.length > 0 && !songSearchOpen && (
-          <div className="mt-4 rounded-2xl border border-white/14 bg-[#16161e] p-3 space-y-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.5)]">
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40 mb-2 px-1">Your picks</div>
+          <div className="mt-4 rounded-2xl border border-[var(--border-neutral)] bg-[#16161e] p-3 space-y-1.5">
+            <div className="ui-label mb-2 px-1">Your picks</div>
             {mySongs.map(s => (
-              <div key={s.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#22222c] px-3 py-2">
+              <div key={s.id} className="flex items-center gap-2 rounded-xl border border-[var(--border-neutral)] bg-[#22222c] px-3 py-2">
                 {s.cover ? (
-                  <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover border border-white/10" />
+                  <img src={s.cover} alt="" className="w-9 h-9 rounded-md object-cover border border-[var(--border-neutral)]" />
                 ) : (
-                  <div className="w-9 h-9 rounded-md bg-black/50 border border-white/10"></div>
+                  <div className="w-9 h-9 rounded-md bg-black/50 border border-[var(--border-neutral)]"></div>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="text-sm truncate font-medium">{s.title}</div>
-                  <div className="text-[11px] text-white/50 truncate">
-                    {s.artist}{s.noPreview && <span className="ml-1.5 text-white/35">· no preview</span>}
+                  <div className="ui-body text-[12px] truncate">
+                    {s.artist}{s.noPreview && <span className="ml-1.5 opacity-70">, no preview</span>}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => dispatch({ type: "removeSong", songId: s.id })}
-                  className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40 hover:text-[var(--hp-magenta)] px-2 py-1"
-                >remove</button>
+                  className="ui-label text-[12px] hover:text-[var(--hp-magenta)] px-2 py-1 transition-colors"
+                >Remove</button>
               </div>
             ))}
           </div>
@@ -2687,7 +2676,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
         {!atSongLimit && (
           <div className="song-suggest-shell mt-4">
             {state.songsPerPlayer && (
-              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--hp-magenta)] mb-2">
+              <div className="ui-label mb-2" style={{ color: "var(--hp-magenta)" }}>
                 Song {mySongs.length + 1} of {songsPerPlayer}
               </div>
             )}
@@ -2702,8 +2691,8 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
         )}
 
         {atSongLimit && (
-          <div className="mt-4 rounded-2xl border border-[var(--hp-neon)]/30 bg-[var(--hp-neon)]/10 px-4 py-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--hp-neon)]">
-            {songsPerPlayer === 1 ? "1 song added — waiting for host" : `All ${songsPerPlayer} songs added — waiting for host`}
+          <div className="mt-4 rounded-2xl border border-[var(--hp-neon)]/30 bg-[var(--hp-neon)]/10 px-4 py-3 text-center ui-body" style={{ color: "var(--hp-neon)" }}>
+            {songsPerPlayer === 1 ? "1 song added, waiting for host" : `All ${songsPerPlayer} songs added, waiting for host`}
           </div>
         )}
 
@@ -2727,7 +2716,7 @@ function LobbyScreen({ state, dispatch, isHost, deviceId, code, mode, onLeave })
           ) : (
             <HpPanel center className="py-4">
               <HpSectionDesc>
-                {canStart ? "Ready — waiting for host to start…" : "Waiting on more songs…"}
+                {canStart ? "Ready, waiting for host to start…" : "Waiting on more songs…"}
               </HpSectionDesc>
             </HpPanel>
           )}
@@ -2742,13 +2731,10 @@ function PoolCounter({ count, variant, quote }) {
   const hp = variant === "home";
   return (
     <div className={cx(
-      "rounded-2xl px-5 py-5 text-center relative overflow-hidden",
-      hp ? "border border-white/12 bg-black/40 backdrop-blur-sm" : "border border-[#282828] bg-[#181818] grain"
+      "theme-panel px-5 py-5 text-center relative overflow-hidden",
+      hp ? "bg-black/40 backdrop-blur-sm" : "bg-[#181818] grain"
     )}>
-      <div className={cx(
-        "uppercase tracking-[0.22em]",
-        hp ? "font-mono text-[10px] text-white/45" : "text-[10px] text-white/40"
-      )}>Songs in the pool</div>
+      <div className="ui-label">Songs in the pool</div>
       <div className="relative mt-1 flex items-baseline justify-center">
         <span className={cx("pool-number", hp && "pool-number--home")} style={hp ? { color: "var(--hp-gold)" } : undefined}>{count}</span>
       </div>
@@ -2765,7 +2751,7 @@ function PoolCounter({ count, variant, quote }) {
               key={i}
               className="w-5 h-5 rounded-full border"
               style={{
-                borderColor: hp ? "rgba(245,197,24,0.35)" : "#3a3a3a",
+                borderColor: hp ? "var(--hp-gold)" : "var(--border-neutral)",
                 background: hp
                   ? "radial-gradient(circle at center, var(--hp-gold) 0 14%, #282828 16% 55%, #181818 56% 100%)"
                   : "radial-gradient(circle at center, #1DB954 0 14%, #282828 16% 55%, #181818 56% 100%)",
@@ -2796,14 +2782,14 @@ function SplashScreen({ roundNumber, totalRounds, onDone, isHost, cinematic }) {
         <div className="absolute inset-0 z-10 grid place-items-center">
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-24 splash-strip bg-gradient-to-r from-transparent via-[var(--hp-gold)]/20 to-transparent"></div>
           <div className="relative text-center splash-num px-6">
-            <div className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/45">Round</div>
+            <div className="ui-label">Round</div>
             <div
               className="mt-1 font-display leading-none text-white"
               style={{ fontSize: "clamp(88px, 24vw, 120px)" }}
             >
               <span style={{ color: "var(--hp-gold)" }}>{roundNumber}</span>
             </div>
-            <div className="-mt-1 font-mono text-[11px] uppercase tracking-[0.28em] text-white/40 tabular">
+            <div className="-mt-1 ui-body tabular text-center">
               of {totalRounds}
             </div>
           </div>
@@ -2816,11 +2802,11 @@ function SplashScreen({ roundNumber, totalRounds, onDone, isHost, cinematic }) {
       <div className="relative w-full">
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-24 splash-strip bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
         <div className="relative text-center splash-num">
-          <div className="text-[11px] uppercase tracking-[0.32em] text-[#B3B3B3]">Round</div>
-          <div className="mt-1 text-[96px] leading-none font-black tracking-tighter text-white">
+          <div className="ui-label">Round</div>
+          <div className="mt-1 text-[96px] leading-none font-display tracking-tighter text-white">
             {roundNumber}
           </div>
-          <div className="-mt-2 text-sm text-white/40 tabular">of {totalRounds}</div>
+          <div className="-mt-2 ui-body tabular">of {totalRounds}</div>
         </div>
       </div>
     </div>
@@ -2828,11 +2814,11 @@ function SplashScreen({ roundNumber, totalRounds, onDone, isHost, cinematic }) {
 }
 
 // ---------- Timer ring ----------
-function TimerRing({ progress, size = 168, stroke = 6, gold }) {
+function TimerRing({ progress, size = 168, stroke = 6, gold, accentColor }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const gradId = gold ? "ringGold" : "ring";
-  const accent = gold ? "#F5C518" : "#1DB954";
+  const gradId = gold ? "ringGold" : accentColor ? "ringAccent" : "ring";
+  const accent = accentColor || (gold ? "#F5C518" : "#1DB954");
   return (
     <svg width={size} height={size} className="pulse-glow">
       <defs>
@@ -3002,7 +2988,7 @@ function RoundReactionBar({ variant }) {
   );
 }
 
-// ---------- RoundScreen (multi-device — cinematic home theme) ----------
+// ---------- RoundScreen (multi-device, cinematic home theme) ----------
 function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   const song = state.songs.find(s => s.id === state.order[state.roundIdx]);
   const audioRef = useRefApp(null);
@@ -3011,7 +2997,7 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   const [playing, setPlaying] = useStateApp(false);
   const [audioError, setAudioError] = useStateApp(false);
 
-  // The song owner is never a guesser — exclude them from the people we wait on.
+  // The song owner is never a guesser, exclude them from the people we wait on.
   const isOwner = !!song && song.ownerDeviceId === deviceId;
   const voters = state.players.filter(p => p.online !== false && (!song || p.deviceId !== song.ownerDeviceId));
   const lockedCount = voters.filter(p => state.guesses[p.deviceId] != null).length;
@@ -3076,7 +3062,7 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
     if (myGuess || isOwner) return;
     if (targetDeviceId === deviceId) return; // can't guess yourself
     // Elapsed guess time is computed server-side (server receive time minus
-    // the server-recorded round start) — no client timestamp is sent.
+    // the server-recorded round start), no client timestamp is sent.
     dispatch({ type: "submitGuess", targetDeviceId });
   };
 
@@ -3086,12 +3072,12 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
   return (
     <HomeStageShell>
       <HomeHeader
-        subtitle="Round in play · multi-device"
+        subtitle="Round in play, multi-device"
         onBack={onLeave}
         backLabel="Leave game"
         right={
           <div className="text-right shrink-0">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">Round</div>
+            <div className="ui-label">Round</div>
             <div className="font-display text-[22px] leading-none tabular" style={{ color: "var(--hp-gold)" }}>
               {state.roundIdx + 1}<span className="text-white/35">/{state.order.length}</span>
             </div>
@@ -3115,16 +3101,16 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
                 )}
                 <div className="relative w-6 h-6 rounded-full bg-[var(--hp-gold)]"></div>
               </div>
-              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-white/15 font-mono text-[11px] tabular text-white/60">
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 border border-[var(--border-neutral)] font-mono text-[11px] tabular text-white/60">
                 0:{secondsLeft.toString().padStart(2, "0")}
               </div>
             </div>
 
-            <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
+            <div className="mt-3 ui-label" style={{ color: "var(--hp-magenta)" }}>Now spinning</div>
             <div className="mt-1 font-display text-[22px] leading-tight text-center px-4 truncate w-full tracking-[0.02em]">{song.title}</div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/55 text-center truncate w-full px-4">{song.artist}</div>
+            <div className="ui-body text-center truncate w-full px-4">{song.artist}</div>
 
-            <div className="mt-3 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
+            <div className="mt-3 flex items-center gap-3 ui-body text-[12px]">
               {playing ? (
                 <div className="flex items-end gap-[2px] h-3">
                   <div className="w-[2px] eq-bar" style={{ background: "var(--hp-gold)" }}></div>
@@ -3137,8 +3123,8 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
               </button>
             </div>
             {audioError && (
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 text-center">
-                Preview unavailable — guess from title & artist
+              <div className="mt-2 ui-body text-center">
+                Preview unavailable, guess from title and artist.
               </div>
             )}
           </div>
@@ -3147,7 +3133,7 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
 
         <div className="mt-5">
           <div className="flex items-baseline justify-between">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
+            <div className="ui-label">
               {myGuess ? "Locked in" : "Who picked it?"}
             </div>
             <div className="font-mono text-[10px] text-[var(--hp-gold)] tabular">{lockedCount}/{voters.length} locked in</div>
@@ -3166,13 +3152,13 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
                       ? "bg-black/40 border-[var(--hp-neon)]/40 text-[var(--hp-neon)]"
                       : isMe && !myGuess
                         ? "bg-[var(--hp-magenta)]/20 border-[var(--hp-magenta)]/50 text-white"
-                        : "bg-black/35 border-white/15 text-white/50"
+                        : "bg-black/35 border-[var(--border-neutral)] text-white/50"
                   )}
                 >
                   <Avatar name={p.name} size={18} />
                   <span>{p.name}</span>
                   {locked && <span>✓</span>}
-                  {isMe && !locked && <span className="font-mono text-[9px] uppercase tracking-[0.1em]">you</span>}
+                  {isMe && !locked && <span className="ui-body text-[11px] opacity-80">you</span>}
                 </div>
               );
             })}
@@ -3182,10 +3168,10 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
             {isOwner ? (
               <>
                 <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]" style={{ color: "var(--hp-magenta)" }}>
-                  This is your track — tap any to ride it out
+                  This is your track, tap any to ride it out
                 </div>
                 {/* Decoy buttons: same motion as everyone else's guess grid, but
-                    blank and scoring-inert — the owner can never guess. */}
+                    blank and scoring-inert, the owner can never guess. */}
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {state.players.filter(p => p.deviceId !== deviceId).map(p => (
                     <button
@@ -3204,18 +3190,18 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
               </>
             ) : myGuess ? (
               <div className="text-center py-6">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hp-gold)" }}>
+                <div className="ui-label mb-2" style={{ color: "var(--hp-gold)" }}>
                   You locked in
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Avatar name={guessTarget?.name} size={32} />
-                  <div className="font-display text-[22px] tracking-[0.04em]">{guessTarget?.name}</div>
+                  <div className="font-semibold text-xl tracking-tight">{guessTarget?.name}</div>
                 </div>
                 <HpSectionDesc>Waiting for {voters.length - lockedCount} more…</HpSectionDesc>
               </div>
             ) : (
               <>
-                <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <div className="px-2 py-1 ui-body opacity-90">
                   Who submitted this track?
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -3223,13 +3209,13 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
                     <button
                       key={p.deviceId}
                       onClick={() => setGuess(p.deviceId)}
-                      className="rounded-xl px-3 py-3 text-sm font-medium border text-left transition flex items-center gap-2 bg-black/35 border-white/15 hover:border-[var(--hp-gold)]/50 hover:bg-black/50"
+                      className="rounded-xl px-3 py-3 text-sm font-medium border-2 text-left transition flex items-center gap-2 bg-black/35 border-[var(--border-neutral)] hover:border-[var(--hp-gold)] hover:bg-black/50"
                     >
                       <Avatar name={p.name} size={26} />
                       <div className="min-w-0">
                         <div className="truncate">{p.name}</div>
                         {p.online === false && (
-                          <div className="font-mono text-[9px] uppercase text-white/30">offline</div>
+                          <div className="ui-body text-[11px] opacity-60">Offline</div>
                         )}
                       </div>
                     </button>
@@ -3240,10 +3226,10 @@ function RoundScreen({ state, dispatch, deviceId, isHost, onLeave }) {
           </HpPanel>
         </div>
 
-        <div className="pt-6 pb-28 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
+        <div className="pt-6 pb-28 text-center ui-body opacity-80">
           {isHost
-            ? (lockedCount === voters.length ? "Everyone's in — revealing…" : "Reveal when everyone's locked in")
-            : (lockedCount === voters.length ? "All in — host is revealing…" : "Reveal happens when everyone's locked in")}
+            ? (lockedCount === voters.length ? "Everyone's in, revealing…" : "Reveal when everyone's locked in")
+            : (lockedCount === voters.length ? "All in, host is revealing…" : "Reveal happens when everyone's locked in")}
         </div>
       </div>
       <RoundReactionBar variant="cinematic" />
@@ -3257,7 +3243,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
   if (!song) return null;
 
   const playersById = Object.fromEntries(state.players.map(p => [p.deviceId, p]));
-  // The owner is never a guesser — keep them out of the guess list and the
+  // The owner is never a guesser, keep them out of the guess list and the
   // sneaky ratio so this view matches the reducer's scoring exactly.
   const guessers = state.players.filter(p => p.deviceId !== song.ownerDeviceId);
   const guessedIds = guessers.filter(g => state.guesses[g.deviceId]).map(g => g.deviceId);
@@ -3276,53 +3262,53 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
       <div className="mx-6 mt-1">
         {cinematic ? (
           <HpPanel>
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>It was…</div>
+            <div className="ui-label" style={{ color: "var(--hp-magenta)" }}>It was…</div>
             <div className="mt-2 flex items-center gap-3">
               <Avatar name={song.ownerName} size={48} />
               <div className="min-w-0">
                 <div className="font-display text-[36px] leading-none tracking-[0.02em] truncate">{song.ownerName}</div>
-                <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white/55 truncate">
-                  <span className="text-white/80">{song.title}</span> · {song.artist}
+                <div className="mt-1 ui-body truncate">
+                  <span className="text-white/90">{song.title}</span>, {song.artist}
                 </div>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {sneaky && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-black/40 text-white/60 border border-white/15 font-mono uppercase tracking-[0.12em]">
-                  ✦ Sneaky · {song.ownerName} +1
+                <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-black/40 text-white/60 border border-[var(--border-neutral)] ui-body">
+                  Sneaky · {song.ownerName} +1
                 </span>
               )}
               {!state.localPassAround && state.fastestCorrect && (
                 <span
-                  className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-mono uppercase tracking-[0.12em]"
+                  className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ui-body"
                   style={{ background: "rgba(245,197,24,0.12)", color: "var(--hp-gold)", borderColor: "rgba(245,197,24,0.35)" }}
                 >
-                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +1
+                  Fastest: {playersById[state.fastestCorrect]?.name} +1
                 </span>
               )}
             </div>
           </HpPanel>
         ) : (
           <div className="rounded-3xl border border-[#282828] bg-[#181818] p-5 grain relative overflow-hidden">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">It was…</div>
+            <div className="ui-label" style={{ color: "#1DB954" }}>It was…</div>
             <div className="mt-2 flex items-center gap-3">
               <Avatar name={song.ownerName} size={48} />
               <div className="min-w-0">
                 <div className="text-3xl font-semibold tracking-tight leading-none truncate">{song.ownerName}</div>
-                <div className="mt-1 text-sm text-white/60 truncate">
-                  <span className="text-white/90">{song.title}</span> · {song.artist}
+                <div className="mt-1 ui-body truncate">
+                  <span className="text-white/90">{song.title}</span>, {song.artist}
                 </div>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {sneaky && (
-                <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#282828] text-[#B3B3B3] border border-[#3a3a3a]">
-                  ✦ Sneaky pick · {song.ownerName} +1
+                <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#282828] text-[#B3B3B3] border border-[var(--border-neutral)] ui-body">
+                  Sneaky pick · {song.ownerName} +1
                 </span>
               )}
-              {state.fastestCorrect && (
-                <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30">
-                  ⚡ Fastest · {playersById[state.fastestCorrect]?.name} +1
+              {!state.localPassAround && state.fastestCorrect && (
+                <span className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30 ui-body">
+                  Fastest: {playersById[state.fastestCorrect]?.name} +1
                 </span>
               )}
             </div>
@@ -3331,10 +3317,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
       </div>
 
       <div className="mt-6 px-6">
-        <div className={cx(
-          "uppercase tracking-[0.18em]",
-          cinematic ? "font-mono text-[10px] text-white/40" : "text-[11px] text-white/40"
-        )}>Guesses</div>
+        <div className="ui-label">Guesses</div>
         <div className="mt-3 space-y-2">
           {guessers.map(guesser => {
             const target = state.guesses[guesser.deviceId];
@@ -3347,7 +3330,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
               <div key={guesser.deviceId} className={cx(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 border",
                 cinematic
-                  ? (noGuess ? "border-white/10 bg-black/30 opacity-60" : right ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35")
+                  ? (noGuess ? "border-[var(--border-neutral)] bg-black/30 opacity-60" : right ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-[var(--border-neutral)] bg-black/35")
                   : (noGuess ? "border-[#282828] bg-[#181818] opacity-60" : right ? "border-[#1DB954]/40 bg-[#1DB954]/[0.08]" : "border-[#282828] bg-[#181818]")
               )}>
                 <Avatar name={guesser.name} size={28} />
@@ -3358,8 +3341,8 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                   <div className="text-sm truncate">
                     <span className="font-medium">{guesser.name}</span>
                   </div>
-                  <div className="text-[11px] text-white/40 font-mono tabular">
-                    {noGuess ? "didn't lock in" : right ? "correct" : "wrong"}{!state.localPassAround && seconds ? ` · ${seconds}s` : ""}
+                  <div className="ui-body text-[12px] tabular">
+                    {noGuess ? "Didn't lock in" : right ? "Correct" : "Wrong"}{!state.localPassAround && seconds ? `, ${seconds}s` : ""}
                     {state.streaks[guesser.deviceId] >= 2 && right && (
                       <span className="ml-1" style={cinematic ? { color: "var(--hp-gold)" } : undefined}>
                         🔥 {state.streaks[guesser.deviceId]}
@@ -3373,7 +3356,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
                     ? (cinematic ? "text-[var(--hp-gold)]" : "bg-[#1DB954]/15 text-[#1DB954]")
                     : (cinematic ? "bg-black/40 text-white/35" : "bg-[#282828] text-[#535353]")
                 )} style={delta > 0 && cinematic ? { background: "rgba(245,197,24,0.15)" } : undefined}>
-                  {delta > 0 ? `+${delta}` : "—"}
+                  {delta > 0 ? `+${delta}` : "-"}
                 </div>
               </div>
             );
@@ -3382,18 +3365,15 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
       </div>
 
       <div className="mt-6 px-6">
-        <div className={cx(
-          "uppercase tracking-[0.18em]",
-          cinematic ? "font-mono text-[10px] text-white/40" : "text-[11px] text-white/40"
-        )}>Leaderboard</div>
+        <div className="ui-label">Leaderboard</div>
         <div className={cx(
           "mt-3 overflow-hidden",
-          cinematic ? "rounded-2xl border border-white/12 bg-black/40 backdrop-blur-sm" : "rounded-2xl border border-[#282828] bg-[#181818]"
+          cinematic ? "rounded-2xl border border-[var(--border-neutral)] bg-black/40 backdrop-blur-sm" : "rounded-2xl border border-[#282828] bg-[#181818]"
         )}>
           {sorted.map((row, i) => (
             <div key={row.deviceId} className={cx(
               "flex items-center gap-3 px-4 py-3 border-b last:border-b-0",
-              cinematic ? "border-white/10" : "border-[#282828]",
+              cinematic ? "border-[var(--border-neutral)]" : "border-[#282828]",
               row.score === topScore && row.score > 0 && (cinematic ? "bg-[var(--hp-gold)]/10" : "bg-[#1DB954]/[0.08]")
             )}>
               <div className="w-5 text-xs font-mono text-white/40 tabular">{i + 1}</div>
@@ -3434,7 +3414,7 @@ function ResultsScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }
         ) : (
           <div className={cx(
             "w-full rounded-xl py-4 text-center text-sm",
-            cinematic ? "border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]" : "bg-[#181818] border border-[#282828] text-[#B3B3B3]"
+            cinematic ? "border border-[var(--border-neutral)] bg-black/35 ui-body text-center" : "bg-[#181818] border border-[#282828] text-[#B3B3B3]"
           )}>
             Waiting for host to {isFinal ? "wrap up" : "advance"}…
           </div>
@@ -3471,7 +3451,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
 
   const playersById = Object.fromEntries(state.players.map(p => [p.deviceId, p]));
   // Per-round guess history retained by the server through the final phase.
-  // This is the ONE screen allowed to show who guessed whom — the game is over.
+  // This is the ONE screen allowed to show who guessed whom, the game is over.
   const roundHistory = Array.isArray(state.roundHistory) ? state.roundHistory : [];
 
   const confetti = useMemoApp(() =>
@@ -3515,25 +3495,25 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
       <div className="mx-6 mt-2">
         {cinematic ? (
           <HpPanel className="p-6">
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: "var(--hp-magenta)" }}>
+            <div className="ui-label" style={{ color: "var(--hp-magenta)" }}>
               {winners.length > 1 ? "It's a tie" : "Winner"}
             </div>
             <div className="mt-1 font-display text-[44px] leading-[0.95] tracking-[0.02em]">
               {winners.length === 0 ? "NOBODY WON, SOMEHOW" : winners.map(w => w.name.toUpperCase()).join(" & ")}
             </div>
-            <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55 tabular">
+            <div className="mt-2 ui-body tabular">
               {winnerScore} point{winnerScore === 1 ? "" : "s"} · They Don&apos;t Know You Son
             </div>
           </HpPanel>
         ) : (
           <div className="rounded-3xl border border-[#282828] bg-[#181818] p-6 grain relative overflow-hidden">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[#1DB954]">
+            <div className="ui-label" style={{ color: "#1DB954" }}>
               {winners.length > 1 ? "It's a tie" : "Winner"}
             </div>
             <div className="mt-1 text-4xl font-semibold tracking-tight leading-tight">
               {winners.length === 0 ? "Nobody won, somehow" : winners.map(w => w.name).join(" & ")}
             </div>
-            <div className="mt-2 text-sm text-white/65 tabular">
+            <div className="mt-2 ui-body tabular">
               {winnerScore} point{winnerScore === 1 ? "" : "s"} · They Don&apos;t Know You Son.
             </div>
           </div>
@@ -3554,7 +3534,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
                     <div className="text-[10px] text-white/40 font-mono tabular">{row.score} pt{row.score === 1 ? "" : "s"}</div>
                   </div>
                   <div
-                    className={cx("w-full rounded-t-lg pt-2 font-black text-white text-xl text-center", podiumColors[idx])}
+                    className={cx("w-full rounded-t-lg pt-2 font-display text-white text-xl text-center", podiumColors[idx])}
                     style={{ height: heights[idx] }}
                   >{idx + 1}</div>
                 </div>
@@ -3565,10 +3545,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
       )}
 
       <div className="mt-6 px-6">
-        <div className={cx(
-          "uppercase tracking-[0.18em]",
-          cinematic ? "font-mono text-[10px] text-white/40" : "text-[11px] text-white/40"
-        )}>All standings</div>
+        <div className="ui-label">All standings</div>
         <div className="mt-3 space-y-2">
           {sorted.map((row, i) => {
             const isWinner = row.score === winnerScore && winnerScore > 0;
@@ -3576,7 +3553,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
               <div key={row.deviceId} className={cx(
                 "flex items-center gap-3 rounded-2xl px-4 py-4 border",
                 cinematic
-                  ? (isWinner ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-white/12 bg-black/35")
+                  ? (isWinner ? "border-[var(--hp-gold)]/40 bg-[var(--hp-gold)]/10" : "border-[var(--border-neutral)] bg-black/35")
                   : (isWinner ? "border-[#1DB954]/40 bg-[#1DB954]/[0.08]" : "border-[#282828] bg-[#181818]")
               )}>
                 <div className={cx(
@@ -3654,7 +3631,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
         ) : (
           <div className={cx(
             "w-full rounded-xl py-4 text-center text-sm",
-            cinematic ? "border border-white/12 bg-black/35 text-white/45 font-mono text-[11px] uppercase tracking-[0.16em]" : "bg-[#181818] border border-[#282828] text-[#B3B3B3]"
+            cinematic ? "border border-[var(--border-neutral)] bg-black/35 ui-body text-center" : "bg-[#181818] border border-[#282828] text-[#B3B3B3]"
           )}>
             Waiting for host to start a new round…
           </div>
@@ -3677,7 +3654,7 @@ function FinalScreen({ state, dispatch, deviceId, isHost, onLeave, cinematic }) 
   }
 
   return (
-    <div className="fade-enter relative min-h-[100dvh]">
+    <div className="fade-enter relative h-full max-h-[100dvh] overflow-hidden flex flex-col">
       {inner}
     </div>
   );
@@ -3695,9 +3672,9 @@ function GameView({ choice, onReset }) {
   const useSess = window.useSession;
   if (!useSess) {
     return (
-      <div className="p-8 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">
+      <div className="p-8 text-center ui-body">
         Party Mode failed to load. Refresh the page.
-        <button type="button" onClick={onReset} className="block mx-auto mt-4 btn-spotify rounded-xl px-5 py-2.5 font-display">BACK</button>
+        <button type="button" onClick={onReset} className="block mx-auto mt-4 btn-spotify rounded-xl px-5 py-2.5 font-semibold">BACK</button>
       </div>
     );
   }
@@ -3936,7 +3913,7 @@ function detectVoicedPitch(detector, buffer, sampleRate, rms) {
 }
 
 /**
- * Pitch gate for scoring — looser than the meter (no bleed / spectrum filters,
+ * Pitch gate for scoring, looser than the meter (no bleed / spectrum filters,
  * which can zero out real singing) but a frame only counts as sung when BOTH:
  *   1. pitchy clarity clears PITCH_CLARITY_SCORE_MIN (real voiced pitch), and
  *   2. rms clears the mic meter's adaptive volume gate (same noise-floor gate
@@ -4095,7 +4072,7 @@ function initialStageState() {
 }
 
 function scoreLabelFor(score, pitchSampleCount) {
-  if (score === 0 && pitchSampleCount < 8) return "NO SIGNAL — was your mic on?";
+  if (score === 0 && pitchSampleCount < 8) return "NO SIGNAL, was your mic on?";
   if (score === 0) return "🔇 THE MIC WAS ON?";
   const row = SCORE_LABELS.find((r) => score >= r.min && score <= r.max);
   return row ? row.label : SCORE_LABELS[SCORE_LABELS.length - 1].label;
@@ -4113,7 +4090,7 @@ function computePitchStability(pitchSamples) {
   let pairs = 0;
   for (let i = 1; i < voiced.length; i++) {
     const dt = voiced[i].time - voiced[i - 1].time;
-    if (dt <= 0 || dt > 0.25) continue; // gap between phrases — not consecutive
+    if (dt <= 0 || dt > 0.25) continue; // gap between phrases, not consecutive
     pairs += 1;
     if (Math.abs(pitchCentsDiff(voiced[i].hz, voiced[i - 1].hz)) <= 150) steady += 1;
   }
@@ -4135,16 +4112,16 @@ function computeRefMatchAccuracy(pitchSamples) {
  * input contribute zero, so silence or background noise scores ~0.
  */
 function computeStageScore(pitchSamples, totalFrames, voicedFrames) {
-  if (totalFrames <= 0) return { score: 0, label: "NO SIGNAL — was your mic on?" };
+  if (totalFrames <= 0) return { score: 0, label: "NO SIGNAL, was your mic on?" };
 
   const sampleCount = pitchSamples.length;
   const voicedRatio = clamp(voicedFrames / totalFrames, 0, 1);
-  // Silent (or noise-only) take: nothing cleared the gates — hard zero.
+  // Silent (or noise-only) take: nothing cleared the gates, hard zero.
   if (sampleCount < 6 || voicedRatio < 0.04) {
     return { score: 0, label: scoreLabelFor(0, sampleCount) };
   }
 
-  // Presence saturates around 55% of frames voiced — previews have
+  // Presence saturates around 55% of frames voiced, previews have
   // instrumental stretches, so nobody sings every frame.
   const presence = clamp(voicedRatio / 0.55, 0, 1);
   const stability = computePitchStability(pitchSamples);
@@ -4207,7 +4184,7 @@ function parseLrc(syncedLyrics) {
 }
 
 async function fetchWithCorsFallback(url, timeoutMs = 6000) {
-  // Each path — direct, then each CORS proxy — gets its own retry-with-backoff,
+  // Each path, direct, then each CORS proxy, gets its own retry-with-backoff,
   // so a single transient hiccup on any one of them doesn't drop the request.
   try {
     return await fetchJsonWithRetry(url, timeoutMs);
@@ -4299,7 +4276,7 @@ async function fetchStageLyricsUncached(title, artist, durationSec, albumName) {
 
   // Track whether ANY of the three requests actually reached LRCLIB (resolved
   // without throwing, even with an empty result). If every request fails after
-  // its retries — network error, timeout, or every proxy down — then a "none"
+  // its retries, network error, timeout, or every proxy down, then a "none"
   // outcome is transient, not a genuine not-found, and must not be cached.
   let anyReached = false;
   const run = async (url, fallback) => {
@@ -4345,7 +4322,7 @@ async function fetchStageLyrics(title, artist, durationSec, albumName) {
         const { transient, ...clean } = result;
         return clean;
       }
-      // Genuine outcomes — synced, plain, or a real not-found — are cached.
+      // Genuine outcomes, synced, plain, or a real not-found, are cached.
       stageLyricsCache.set(key, result);
       return result;
     })
@@ -4518,7 +4495,7 @@ function StageSearchScreen({ state, dispatch }) {
         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STAGE_ACCENT }} />
         <h2 className="font-display text-[28px] tracking-[0.08em]" style={{ color: STAGE_ACCENT }}>STAGE MODE</h2>
       </div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50 mb-4">
+      <p className="ui-body mb-4">
         Search a song, sing the 30 second preview, get a score
       </p>
 
@@ -4539,8 +4516,8 @@ function StageSearchScreen({ state, dispatch }) {
       )}
 
       {!state.searchLoading && query.trim().length >= 2 && results.length === 0 && (
-        <div className="mt-6 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">
-          No tracks found — try another search
+        <div className="mt-6 text-center ui-body">
+          No tracks found, try another search.
         </div>
       )}
 
@@ -4552,10 +4529,10 @@ function StageSearchScreen({ state, dispatch }) {
         {results.map((track) => (
           <div
             key={track.deezerTrackId}
-            className="stage-result-card rounded-xl border border-white/12 bg-black/40 p-3 flex items-center gap-3"
+            className="stage-result-card rounded-xl border border-[var(--border-neutral)] bg-black/40 p-3 flex items-center gap-3"
           >
             {track.albumArt ? (
-              <img src={track.albumArt} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-white/10" />
+              <img src={track.albumArt} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-[var(--border-neutral)]" />
             ) : (
               <div className="w-14 h-14 rounded-lg bg-[#222] shrink-0" />
             )}
@@ -4567,7 +4544,7 @@ function StageSearchScreen({ state, dispatch }) {
                   type="button"
                   disabled={!track.previewUrl}
                   onClick={() => playSnippet(track.previewUrl)}
-                  className="font-mono text-[10px] uppercase tracking-[0.14em] hover:opacity-80 disabled:opacity-30"
+                  className="ui-label hover:opacity-80 disabled:opacity-30"
                   style={{ color: STAGE_ACCENT }}
                 >
                   ▶ Preview
@@ -4582,7 +4559,7 @@ function StageSearchScreen({ state, dispatch }) {
                 prefetchStageLyrics(track);
                 dispatch({ type: "selectTrack", track });
               }}
-              className="stage-select-btn shrink-0 rounded-lg px-3 py-2 font-display text-[14px] tracking-[0.1em]"
+              className="stage-select-btn shrink-0 rounded-lg px-3 py-2 text-sm font-semibold tracking-wide"
             >
               SELECT
             </button>
@@ -4597,7 +4574,7 @@ function StageSearchScreen({ state, dispatch }) {
 // no fill) so the full range and maximum are always visible. The current input
 // level fills the slots left-to-right with the pink stage accent. The fill has
 // a fast attack and a slow release so it tracks the voice in real time but
-// falls back naturally when the user stops. This is purely visual — the mic
+// falls back naturally when the user stops. This is purely visual, the mic
 // detection / level value is taken from `level` unchanged.
 //
 // Threshold marker positions (0–1 fraction along the bar row) with labels
@@ -4655,7 +4632,7 @@ function MicLevelBars({ level, slots = 20, height = 28, className }) {
           return (
             <div
               key={i}
-              className="relative flex-1 min-w-0 rounded-[2px] border border-white/15"
+              className="relative flex-1 min-w-0 rounded-[2px] border border-[var(--border-neutral)]"
             >
               <div
                 className="absolute inset-y-[1px] left-[1px] rounded-[1px]"
@@ -4679,12 +4656,12 @@ function MicLevelBars({ level, slots = 20, height = 28, className }) {
           />
         ))}
       </div>
-      {/* Labels row — positioned below each marker */}
+      {/* Labels row, positioned below each marker */}
       <div className="relative w-full" style={{ height: "11px", marginTop: "2px" }}>
         {MIC_THRESHOLDS.map(({ frac, label }) => (
           <span
             key={label}
-            className="absolute font-mono uppercase tracking-widest text-white/40"
+            className="absolute ui-label opacity-80"
             style={{
               left: `${frac * 100}%`,
               transform: "translateX(-50%)",
@@ -4727,7 +4704,7 @@ function StageFreestyleState({ compact }) {
   }
   return (
     <div className="text-center px-6 select-none">
-      <div className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.28em] text-white/45 mb-4">
+      <div className="inline-flex items-center gap-2 ui-label opacity-80 mb-4">
         <span
           className="w-1.5 h-1.5 rounded-full"
           style={{ background: STAGE_ACCENT, boxShadow: `0 0 10px ${STAGE_ACCENT}` }}
@@ -4750,7 +4727,7 @@ function StageFreestyleState({ compact }) {
       >
         MODE
       </div>
-      <p className="mt-5 max-w-xs mx-auto text-white/60 text-sm leading-relaxed">
+      <p className="mt-5 max-w-xs mx-auto ui-body leading-relaxed">
         No lyrics here. Sing whatever, your pitch and timing still count.
       </p>
     </div>
@@ -4852,35 +4829,35 @@ function StageReadyScreen({ state, dispatch, onBack }) {
 
   return (
     <div className="stage-shell stage-content flex-1 px-6 pb-8">
-      <button type="button" onClick={onBack} className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-white/45 hover:text-white">
+      <button type="button" onClick={onBack} className="mb-4 ui-label hover:text-white transition-colors">
         ← Back
       </button>
 
       <div className="flex items-center gap-4">
         {track.albumArt && (
-          <img src={track.albumArt} alt="" className="w-20 h-20 rounded-xl object-cover border border-white/15" />
+          <img src={track.albumArt} alt="" className="w-20 h-20 rounded-xl object-cover border border-[var(--border-neutral)]" />
         )}
         <div>
           <div className="font-display text-[24px] leading-tight">{track.title}</div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/50">{track.artist}</div>
+          <div className="ui-body">{track.artist}</div>
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-white/10 bg-black/35 px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/50 leading-relaxed">
+      <div className="mt-4 rounded-xl border border-[var(--border-neutral)] bg-black/35 px-3 py-2.5 ui-body">
         Use headphones so the music doesn&apos;t bleed into your score.
       </div>
 
       {track.previewStartSec != null && (
-        <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
+        <div className="mt-3 ui-body">
           Deezer preview starts at <span style={{ color: STAGE_ACCENT }}>{formatStageTime(track.previewStartSec)}</span> in the full song
           {track.durationSec > 0 && (
-            <span className="text-white/35"> · track {formatStageTime(track.durationSec)}</span>
+            <span className="opacity-70"> (track {formatStageTime(track.durationSec)})</span>
           )}
         </div>
       )}
 
       {state.lyricsStatus === "loading" && (
-        <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Loading lyrics…</div>
+        <div className="mt-4 ui-body">Loading lyrics…</div>
       )}
       {(state.lyricsStatus === "none" || state.lyricsStatus === "plain") && (
         <div className="mt-4">
@@ -4888,11 +4865,11 @@ function StageReadyScreen({ state, dispatch, onBack }) {
         </div>
       )}
       {state.lyricsStatus === "synced" && (state.previewClipLyrics.length > 0 || state.lyrics.length > 0) && (
-        <div className="mt-4 rounded-xl border border-white/12 bg-black/40 p-3 max-h-48 overflow-y-auto">
-          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/45 mb-2">
+        <div className="mt-4 rounded-xl border border-[var(--border-neutral)] bg-black/40 p-3 max-h-48 overflow-y-auto">
+          <div className="ui-label mb-2">
             Preview lyrics
             {track.previewStartSec != null && (
-              <> · {formatStageTime(track.previewStartSec)}–{formatStageTime(track.previewStartSec + STAGE_PREVIEW_MAX_SEC)}</>
+              <> ({formatStageTime(track.previewStartSec)}–{formatStageTime(track.previewStartSec + STAGE_PREVIEW_MAX_SEC)})</>
             )}
           </div>
           <div className="space-y-1 text-sm text-white/80">
@@ -4912,22 +4889,22 @@ function StageReadyScreen({ state, dispatch, onBack }) {
             type="button"
             onClick={requestMic}
             disabled={state.micStatus === "requesting"}
-            className="stage-primary-btn w-full rounded-xl py-4 font-display text-[20px] tracking-[0.12em]"
+            className="stage-primary-btn w-full rounded-xl py-4 text-lg font-semibold tracking-wide"
           >
             {state.micStatus === "requesting" ? "REQUESTING…" : "ALLOW MICROPHONE"}
           </button>
         ) : state.micStatus === "denied" ? (
           <div className="rounded-xl border border-[var(--hp-magenta)]/40 bg-black/50 p-4 text-sm text-white/80 leading-relaxed">
             Microphone access is needed to score your performance. Please allow mic access in your browser settings and try again.
-            <button type="button" onClick={requestMic} className="stage-primary-btn block w-full mt-4 rounded-xl py-3 font-display text-[16px]">
+            <button type="button" onClick={requestMic} className="stage-primary-btn block w-full mt-4 rounded-xl py-3 text-base font-semibold">
               TRY AGAIN
             </button>
           </div>
         ) : (
-          <div className="rounded-xl border border-white/12 bg-black/40 p-4">
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/45 mb-2">Mic level (your voice)</div>
+          <div className="rounded-xl border border-[var(--border-neutral)] bg-black/40 p-4">
+            <div className="ui-label mb-2">Mic level (your voice)</div>
             <MicLevelBars level={micLevel} />
-            <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/35">
+            <p className="mt-2 ui-body text-[12px] opacity-85">
               Hum or sing. The bars should follow your voice, not the room.
             </p>
           </div>
@@ -4938,7 +4915,7 @@ function StageReadyScreen({ state, dispatch, onBack }) {
         type="button"
         disabled={state.micStatus !== "granted"}
         onClick={() => dispatch({ type: "goPerformance" })}
-        className="stage-primary-btn w-full mt-6 rounded-xl py-4 font-display text-[22px] tracking-[0.12em] disabled:opacity-35"
+        className="stage-primary-btn w-full mt-6 rounded-xl py-4 text-lg font-semibold tracking-wide disabled:opacity-35"
       >
         START SINGING
       </button>
@@ -5199,12 +5176,12 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
   if (previewFailed || analysisFailed) {
     return (
       <div className="stage-performance flex flex-col items-center justify-center min-h-[70dvh] px-6 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/60">
+        <p className="ui-body">
           {analysisFailed
-            ? "Pitch detection failed to load — refresh and try again"
+            ? "Pitch detection failed to load, refresh and try again"
             : "Preview unavailable for this track, try another"}
         </p>
-        <button type="button" onClick={() => dispatch({ type: "goSearch" })} className="stage-primary-btn mt-6 rounded-xl px-6 py-3 font-display">
+        <button type="button" onClick={() => dispatch({ type: "goSearch" })} className="stage-primary-btn mt-6 rounded-xl px-6 py-3 font-semibold">
           NEW SONG
         </button>
       </div>
@@ -5223,13 +5200,13 @@ function StagePerformanceScreen({ state, dispatch, micStream, performanceRun }) 
       <div className="stage-spotlight absolute inset-0 pointer-events-none" />
 
       <div className="relative z-10 px-4 pt-4">
-        <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+        <div className="h-1 rounded-full bg-white/10 overflow-hidden border border-[var(--border-neutral)]">
           <div className="h-full transition-all duration-100" style={{ width: `${audioProgress * 100}%`, background: STAGE_ACCENT }} />
         </div>
       </div>
 
       <div className="relative z-10 px-4 pt-2 flex justify-between items-start gap-2">
-        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/45 leading-snug">
+        <div className="ui-body leading-snug">
           <div className="tabular">Preview {formatStageTime(currentTime)} / 0:30</div>
           {hasLyrics && (
             <div className="tabular mt-0.5" style={{ color: STAGE_ACCENT }}>
@@ -5344,25 +5321,25 @@ function StageResultsScreen({ state, dispatch, onExit }) {
       >
         {displayScore}
       </div>
-      <div className="mt-2 inline-block rounded-full px-4 py-2 border font-mono text-[11px] uppercase tracking-[0.14em]" style={{ borderColor: `${STAGE_ACCENT}66`, color: STAGE_ACCENT }}>
+      <div className="mt-2 inline-block rounded-full px-4 py-2 border ui-body" style={{ borderColor: `${STAGE_ACCENT}66`, color: STAGE_ACCENT }}>
         {state.scoreLabel}
       </div>
 
       {track && track.albumArt && (
-        <img src={track.albumArt} alt="" className="mx-auto mt-8 w-28 h-28 rounded-2xl object-cover border border-white/15 shadow-lg" />
+        <img src={track.albumArt} alt="" className="mx-auto mt-8 w-28 h-28 rounded-2xl object-cover border border-[var(--border-neutral)]" />
       )}
       {track && (
         <div className="mt-4 font-display text-[22px]">{track.title}</div>
       )}
 
       <div className="mt-8 space-y-3 max-w-xs mx-auto">
-        <button type="button" onClick={() => dispatch({ type: "singAgain" })} className="stage-primary-btn w-full rounded-xl py-3.5 font-display text-[18px] tracking-[0.1em]">
+        <button type="button" onClick={() => dispatch({ type: "singAgain" })} className="stage-primary-btn w-full rounded-xl py-3.5 text-base font-semibold tracking-wide">
           SING AGAIN
         </button>
-        <button type="button" onClick={() => dispatch({ type: "goSearch" })} className="w-full rounded-xl py-3.5 font-display text-[18px] tracking-[0.1em] border transition btn-gold">
+        <button type="button" onClick={() => dispatch({ type: "goSearch" })} className="w-full rounded-xl py-3.5 text-base font-semibold tracking-wide border transition btn-gold">
           <span className="relative z-[1]">NEW SONG</span>
         </button>
-        <button type="button" onClick={onExit} className="w-full rounded-xl py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-white/45 hover:text-white">
+        <button type="button" onClick={onExit} className="w-full rounded-xl py-3 ui-label hover:text-white transition-colors">
           BACK TO MENU
         </button>
       </div>
@@ -5495,24 +5472,13 @@ function StageModeView({ onReset }) {
   }, [state.lyricsLoadKey, dispatch]);
 
   return (
-    <div className={cx(
-      "hp-stage relative overflow-hidden flex flex-col fade-enter",
-      // During a performance the whole view (header + screen) must fit the
-      // viewport exactly so the bottom mic meter is never pushed below the
-      // fold; other stage screens may grow and scroll normally.
-      state.screen === "performance" ? "h-[100dvh]" : "min-h-[100dvh]"
-    )}>
+    <div className="hp-stage relative overflow-hidden flex flex-col fade-enter h-full max-h-[100dvh]">
       <HpStageBackdrop topStrip />
-      <div className="relative z-10 flex flex-col flex-1 min-h-0">
-      <div className="hp-header-bar pt-6 px-6 md:px-0 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full" style={{ background: STAGE_ACCENT }} />
-          <span className="font-display landing-nav tracking-[0.28em] text-white/85">STAGE MODE</span>
-        </div>
-        <button type="button" onClick={onReset} className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 hover:text-white">
-          Exit
-        </button>
-      </div>
+      <div className={cx(
+        "relative z-10 flex flex-col flex-1 min-h-0",
+        state.screen === "performance" ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"
+      )}>
+      <HomeHeader onBack={onReset} backLabel="Back" />
 
       {state.screen === "search" && <StageSearchScreen state={state} dispatch={dispatch} />}
       {state.screen === "ready" && (
@@ -5540,7 +5506,7 @@ function App() {
   const [choice, setChoice] = useStateApp(null);
 
   return (
-    <div className="shell">
+    <div className="shell h-full">
       {!choice && <StartScreen onChoose={setChoice} />}
       {choice && (
         choice.game === "stage"

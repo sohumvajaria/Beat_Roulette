@@ -54,9 +54,9 @@ function shuffleArr(arr: string[]) {
 // Maximum plausible time (ms) for a guesser to lock in a guess. All guess
 // times are measured on the SERVER's clock (server receive time minus the
 // server-recorded roundStartedAt) and clamped into [0, PARTY_ROUND_MS] at
-// write time — client timestamps are never trusted, so negative or absurd
+// write time, client timestamps are never trusted, so negative or absurd
 // elapsed values can't be recorded. isSaneGuessTime is a belt-and-braces
-// check used ONLY when picking the single fastest-correct guesser — a sane-
+// check used ONLY when picking the single fastest-correct guesser, a sane-
 // or-not time never changes whether a guess counts as correct, just the
 // speed bonus eligibility.
 const PARTY_ROUND_MS = 5 * 60 * 1000;
@@ -210,7 +210,7 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
         phase: "round",
         // Authoritative round start on the SERVER's clock (serverNow is
         // injected by applyAction). Elapsed guess times are always computed
-        // against this — never against a client-supplied timestamp.
+        // against this, never against a client-supplied timestamp.
         roundStartedAt: action.serverNow as number,
         guesses: {},
         guessTimes: {},
@@ -228,7 +228,7 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
       if (deviceId === targetDeviceId) return state;
       // The target must be a real player in the game.
       if (!state.players.some((p) => p.deviceId === targetDeviceId)) return state;
-      // One locked-in guess per player — never overwrite an existing guess.
+      // One locked-in guess per player, never overwrite an existing guess.
       if (state.guesses[deviceId] != null) return state;
       // Elapsed time = server receive time minus server-recorded round start.
       // Both sides of the subtraction come from the server's own clock, so
@@ -246,7 +246,7 @@ function reducer(state: PartyState, action: Record<string, unknown>): PartyState
     case "revealRound": {
       // Idempotent: a round can only be revealed once. After the first reveal
       // phase is "results", so any repeat call falls through here and returns
-      // the state untouched — points are never added a second time.
+      // the state untouched, points are never added a second time.
       if (state.phase !== "round") return state;
       const song = state.songs.find((s) => s.id === state.order[state.roundIdx]);
       if (!song) return state;
